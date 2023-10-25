@@ -5,6 +5,8 @@ VisualStudioVersion = 17.6.33829.357
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pores Analyser", "Pores Analyser.vcxproj", "{B2BEC127-5EF2-4F7F-A083-AC94D1373207}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "test\test.vcxproj", "{DE097922-3F01-4DDC-9E60-C32768480180}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{B2BEC127-5EF2-4F7F-A083-AC94D1373207}.Release|x64.Build.0 = Release|x64
 		{B2BEC127-5EF2-4F7F-A083-AC94D1373207}.Release|x86.ActiveCfg = Release|Win32
 		{B2BEC127-5EF2-4F7F-A083-AC94D1373207}.Release|x86.Build.0 = Release|Win32
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Debug|x64.ActiveCfg = Debug|x64
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Debug|x64.Build.0 = Debug|x64
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Debug|x86.ActiveCfg = Debug|Win32
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Debug|x86.Build.0 = Debug|Win32
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Release|x64.ActiveCfg = Release|x64
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Release|x64.Build.0 = Release|x64
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Release|x86.ActiveCfg = Release|Win32
+		{DE097922-3F01-4DDC-9E60-C32768480180}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
