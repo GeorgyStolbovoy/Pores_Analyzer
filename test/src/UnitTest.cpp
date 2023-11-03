@@ -6,7 +6,14 @@
 
 BOOST_AUTO_TEST_CASE(algorithm_test)
 {
-	double x = 35.85, y = 29.888, e = 0.001, c = -0.1, a = std::pow(10, c);
-	for (double xk = x, prev = xk + 1; std::abs(xk - prev) > e; prev = xk, xk = a*y*std::pow(xk, a-1) - a*std::pow(xk, 2*a-1) + x)
-		BOOST_TEST_MESSAGE(xk << " ; y = " << std::pow(xk, a) << " ; X = " << a*y*(a - 1)*std::pow(xk, a - 2) - a*(2*a - 1)*std::pow(xk, 2*a - 2));
+	unsigned char* bm_buf = new unsigned char[300'000];
+    memset(bm_buf, 0, 300'000);
+    auto ptr = bm_buf;
+    for (int i = 0, end = 300'000; i < end; ++i)
+    {
+        ++ptr;
+        auto jjj = ptr - bm_buf;
+        auto ddd = ptr[2];
+    }
+    delete bm_buf;
 }

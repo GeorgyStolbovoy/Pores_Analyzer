@@ -3,6 +3,7 @@
 #include "ImageWindow.h"
 #include "CorrectionWindow.h"
 #include <wx/frame.h>
+#include <wx/menu.h>
 #include <wx/statline.h>
 #include <wx/slider.h>
 #include <wx/checkbox.h>
@@ -20,5 +21,9 @@ class Frame : public wxFrame
 
 public:
     Frame();
-	void RefreshImage() {m_image->Refresh();}
+	void RefreshImage(ImageWindow::Histogram_t&& hist);
+	void Load_Image(wxCommandEvent& event);
+	void Exit(wxCommandEvent& event) {Destroy();}
+
+	wxDECLARE_EVENT_TABLE();
 };

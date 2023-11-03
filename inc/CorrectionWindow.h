@@ -66,7 +66,6 @@ class CorrectionWindow : public wxWindow
 	int saved_width, saved_height;
 	std::set<PointComplex, decltype([](const PointComplex& lhs, const PointComplex& rhs){return lhs.point.m_x < rhs.point.m_x;})> points;
 	std::set<CurveComplex, CurvesComp> curves;
-	OptionalPath path_histogram;
 	std::optional<wxPoint2DDouble> point_to_add;
 	std::variant<std::monostate, PointComplex*, CurveComplex*> hover, captured;
 	bool ctrl_pressed = false, alt_pressed = false; // antispam
@@ -79,6 +78,8 @@ class CorrectionWindow : public wxWindow
 	void UpdateImage();
 
 public:
+	OptionalPath path_histogram;
+
 	CorrectionWindow(wxWindow *parent);
 	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);

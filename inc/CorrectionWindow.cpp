@@ -21,7 +21,7 @@ wxBEGIN_EVENT_TABLE(CorrectionWindow, wxWindow)
 wxEND_EVENT_TABLE()
 
 CorrectionWindow::CorrectionWindow(wxWindow *parent) :
-    wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE | wxBORDER_SIMPLE | wxWANTS_CHARS),
+    wxWindow(parent, wxID_ANY, wxDefaultPosition, wxSize{300, 300}, wxFULL_REPAINT_ON_RESIZE | wxBORDER_SIMPLE | wxWANTS_CHARS),
     saved_width(GetSize().GetWidth()), saved_height(GetSize().GetHeight()),
     points({
         {{0.0, 0.0}, false, true},
@@ -29,7 +29,7 @@ CorrectionWindow::CorrectionWindow(wxWindow *parent) :
         {{double(saved_width), double(saved_height)}, false, true}
     })
 {
-    SetMinSize(wxSize{400, 300});
+    SetMinSize(wxSize{300, 300});
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetBackgroundColour(*wxWHITE);
 
@@ -171,12 +171,7 @@ void CorrectionWindow::UpdateImage()
                 histogram[i] = std::round(255*curve_it->CalcY(x)/height);
         }
     }
-    auto src = gil::interleaved_view(3*ImageWindow::m_img_original.GetWidth(), ImageWindow::m_img_original.GetHeight(),
-        reinterpret_cast<gil::gray8_pixel_t*>(ImageWindow::m_img_original.GetData()), 3*ImageWindow::m_img_original.GetWidth());
-    auto dst = gil::interleaved_view(3*ImageWindow::m_img_edited.GetWidth(), ImageWindow::m_img_edited.GetHeight(),
-        reinterpret_cast<gil::gray8_pixel_t*>(ImageWindow::m_img_edited.GetData()), 3*ImageWindow::m_img_edited.GetWidth());
-    gil::transform_pixels(src, dst, [&histogram](gil::gray8_pixel_t& pix){return unsigned(histogram[pix]);});
-    static_cast<Frame*>(GetParent())->RefreshImage();
+    static_cast<Frame*>(GetParent())->RefreshImage(std::move(histogram));
 }
 
 void CorrectionWindow::OnPaint(wxPaintEvent& event)
@@ -190,30 +185,25 @@ void CorrectionWindow::OnPaint(wxPaintEvent& event)
     std::unique_ptr<wxGraphicsContext> gc{wxGraphicsContext::Create(dc)};
     gc->SetTransform(gc->CreateMatrix(1 - 13/double(width), 0, 0, 13/double(height) - 1, 6.5, height - 6.5));
     
-    if (ImageWindow::status == ImageWindow::EStatus::GREY)
+    // Ãטסעמדנאללא
+    if (auto view = gil::view(ImageWindow::image); !view.empty())
     {
-        // Ãטסעמדנאללא
-        brush.SetColour(wxColour{0, 0, 0, 127});
-        gc->SetBrush(brush);
         if (!path_histogram.has_value()) [[unlikely]]
         {
             path_histogram = gc->CreatePath();
             std::unordered_map<uint8_t, uint32_t> histogram{256};
             for (uint16_t i = 0; i < 256; ++i) histogram[i] = 0;
-            auto view = gil::interleaved_view(3*ImageWindow::m_img_original.GetWidth(), ImageWindow::m_img_original.GetHeight(),
-                reinterpret_cast<gil::gray8_pixel_t*>(ImageWindow::m_img_original.GetData()), 3*ImageWindow::m_img_original.GetWidth());
             uint32_t max_count = 0;
             for (auto iter = view.begin(), end = view.end(); iter != end; ++iter)
-            {
-                uint32_t& v = ++histogram[*iter];
-                if (v > max_count) [[unlikely]]
+                if (uint32_t v = ++histogram[*iter]; v > max_count) [[unlikely]]
                     max_count = v;
-            }
             float hist_step = width / float(256);
             for (uint16_t i = 0; i < 256; ++i)
                 if (histogram[i] > 0)
                     path_histogram.value().AddRectangle(hist_step*(i - 0.475 + i/float(255)), -6.5, 0.95*hist_step, 0.99*height*histogram[i]/double(max_count));
         }
+        brush.SetColour(wxColour{0, 0, 0, 127});
+        gc->SetBrush(brush);
         gc->FillPath(path_histogram.value());
     }
 

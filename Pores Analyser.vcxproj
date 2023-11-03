@@ -77,22 +77,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
-    <IncludePath>inc\;$(BOOST_DIR)\;$(IncludePath)</IncludePath>
+    <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
-    <IncludePath>inc\;$(BOOST_DIR)\;$(IncludePath)</IncludePath>
+    <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
-    <IncludePath>inc\;$(BOOST_DIR)\;$(IncludePath)</IncludePath>
+    <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
-    <IncludePath>inc\;$(BOOST_DIR)\;$(IncludePath)</IncludePath>
+    <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -120,6 +120,10 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -155,6 +159,10 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -167,6 +175,7 @@
   <ItemGroup>
     <ClCompile Include="inc\CorrectionWindow.cpp" />
     <ClCompile Include="src\Entry.cpp" />
+    <ClCompile Include="src\Frame.cpp" />
     <ClCompile Include="src\Frame_ctor.cpp" />
     <ClCompile Include="src\ImageWindow.cpp" />
   </ItemGroup>
@@ -174,6 +183,7 @@
     <ClInclude Include="inc\CorrectionWindow.h" />
     <ClInclude Include="inc\Frame.h" />
     <ClInclude Include="inc\ImageWindow.h" />
+    <ClInclude Include="inc\MeasureWindow.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
