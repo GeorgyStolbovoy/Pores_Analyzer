@@ -6,6 +6,7 @@
 #include <optional>
 #include <set>
 #include <variant>
+#include <thread>
 
 class CorrectionWindow : public wxWindow
 {
@@ -80,7 +81,7 @@ class CorrectionWindow : public wxWindow
 public:
 	OptionalPath path_histogram;
 
-	CorrectionWindow(wxWindow *parent);
+	CorrectionWindow(wxWindow *parent, const wxSize& size);
 	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);
 	void OnKeyDown(wxKeyEvent& event);

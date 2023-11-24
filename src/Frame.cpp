@@ -24,7 +24,7 @@ void Frame::Load_Image(wxCommandEvent& event)
             gil::read_and_convert_image(path.c_str().AsChar(), ImageWindow::image, gil::tiff_tag());
         else if (path.EndsWith(".bmp"))
             gil::read_and_convert_image(path.c_str().AsChar(), ImageWindow::image, gil::bmp_tag());
-        m_image->OnSize();
+        m_image->OnSizeLinear();
         m_curves->path_histogram = std::nullopt;
         Refresh();
     }
@@ -33,6 +33,7 @@ void Frame::Load_Image(wxCommandEvent& event)
 void Frame::RefreshImage(ImageWindow::Histogram_t&& hist)
 {
     m_image->histogram = std::move(hist);
-    m_image->OnSize();
+    m_image->OnSizeLinear();
     m_image->Refresh();
+    m_image->Update();
 }

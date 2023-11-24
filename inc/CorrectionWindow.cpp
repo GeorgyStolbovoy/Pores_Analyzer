@@ -5,6 +5,7 @@
 #include <wx/dcbuffer.h>
 #include <boost/gil.hpp>
 #include <memory>
+#include <atomic>
 
 namespace gil = boost::gil;
 
@@ -20,8 +21,8 @@ wxBEGIN_EVENT_TABLE(CorrectionWindow, wxWindow)
     EVT_MOUSE_CAPTURE_LOST(CorrectionWindow::OnCaptureLost)
 wxEND_EVENT_TABLE()
 
-CorrectionWindow::CorrectionWindow(wxWindow *parent) :
-    wxWindow(parent, wxID_ANY, wxDefaultPosition, wxSize{300, 300}, wxFULL_REPAINT_ON_RESIZE | wxBORDER_SIMPLE | wxWANTS_CHARS),
+CorrectionWindow::CorrectionWindow(wxWindow *parent, const wxSize& size) :
+    wxWindow(parent, wxID_ANY, wxDefaultPosition, size, wxFULL_REPAINT_ON_RESIZE | wxBORDER_SIMPLE | wxWANTS_CHARS),
     saved_width(GetSize().GetWidth()), saved_height(GetSize().GetHeight()),
     points({
         {{0.0, 0.0}, false, true},
@@ -171,7 +172,9 @@ void CorrectionWindow::UpdateImage()
                 histogram[i] = std::round(255*curve_it->CalcY(x)/height);
         }
     }
+    //auto start = std::chrono::high_resolution_clock::now();
     static_cast<Frame*>(GetParent())->RefreshImage(std::move(histogram));
+    //static_cast<Frame*>(GetParent())->SetStatusText(wxString::Format("ms: %i", (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count()));
 }
 
 void CorrectionWindow::OnPaint(wxPaintEvent& event)
@@ -392,8 +395,9 @@ void CorrectionWindow::OnMouseMove(wxMouseEvent& event)
                     next_curve.CalcCtrlPoint();
                     next_curve.path = std::nullopt;
                 }
-                UpdateImage();
                 Refresh();
+                Update();
+                UpdateImage();
             }
             else if constexpr (std::is_same_v<T, CurveComplex*>)
             {
@@ -412,8 +416,9 @@ void CorrectionWindow::OnMouseMove(wxMouseEvent& event)
                     obj->slope = std::log10(std::log10(mouse_y) / std::log10((obj->ctrl_point.first.m_x - obj->points.first->m_x)/(obj->points.second->m_x - obj->points.first->m_x)));;
                 obj->CalcCtrlPoint();
                 obj->path = std::nullopt;
-                UpdateImage();
                 Refresh();
+                Update();
+                UpdateImage();
             }
             else if constexpr (std::is_same_v<T, std::monostate>)
             {
@@ -503,8 +508,9 @@ void CorrectionWindow::OnMouseLeftUp(wxMouseEvent& event)
                 curve.path = std::nullopt;
                 curves.erase(next_curve);
                 points.erase(point_it);
-                UpdateImage();
                 Refresh();
+                Update();
+                UpdateImage();
             }
         }
     }

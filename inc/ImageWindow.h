@@ -16,11 +16,11 @@ public:
 	static gil::image<gil::gray8_pixel_t> image, image_current;
 	Histogram_t histogram;
 
-	ImageWindow(wxWindow *parent);
+	ImageWindow(wxWindow *parent, const wxSize& size);
 	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);
-	void OnSize();
-	void ApplyHistogram();
+	void OnSizeLinear();
+	//void OnSizeBicubic();
 
 	wxDECLARE_EVENT_TABLE();
 };
