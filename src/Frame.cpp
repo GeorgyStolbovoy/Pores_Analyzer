@@ -1,21 +1,21 @@
 #include "Frame.h"
 #include <wx/filedlg.h>
-#include <atomic>
 #include <boost/gil/io/read_image.hpp>
 #include <boost/gil/extension/io/png.hpp>
 #include <boost/gil/extension/io/jpeg.hpp>
 #include <boost/gil/extension/io/tiff.hpp>
 #include <boost/gil/extension/io/bmp.hpp>
-#include <boost/interprocess/containers/string.hpp>
-//#include <boost/interprocess/offset_ptr.hpp>
 #include <boost/json.hpp>
 #include <wx/msgdlg.h>
 
-wxWindowID Frame::soa_id = wxWindow::NewControlId();
+wxWindowID Frame::soa_id = wxWindow::NewControlId(), Frame::sock_id = wxWindow::NewControlId();
 
 wxBEGIN_EVENT_TABLE(Frame, wxWindow)
     EVT_MENU(wxID_OPEN, Frame::Load_Image)
 	EVT_MENU(soa_id, Frame::OnSoa)
+#ifdef VIEWER
+	EVT_SOCKET(sock_id, Frame::OnSocket)
+#endif
     EVT_MENU(wxID_EXIT, Frame::Exit)
 wxEND_EVENT_TABLE()
 
@@ -41,77 +41,65 @@ void Frame::Load_Image(wxCommandEvent& event)
 }
 
 #ifdef VIEWER
-	void Frame::SoaCallback()
+	void Frame::OnSocket(wxSocketEvent& event)
 	{
-		wxMessageBox(wxT("Message box text"), wxT("Message box caption"),wxNO_DEFAULT|wxYES_NO|wxCANCEL|wxICON_INFORMATION);	
+        namespace json = boost::json;
+        
+        char buf[64*1024];
+		sock->Read(buf, 64*1024);
+		json::array arr = json::parse(std::string_view{buf, std::strchr(buf, ']') + 1}).as_array();
+		for (uint16_t i = 0; i < 256; ++i)
+            m_image->histogram[i] = arr[i].as_int64();
+		m_image->OnSizeLinear();
+	    m_image->Refresh();
+	    m_image->Update();
 	}
 #endif
 
 void Frame::OnSoa(wxCommandEvent& event)
 {
-    namespace process = boost::interprocess;
-
 	if (event.IsChecked())
 	{
-		segment = process::managed_shared_memory{process::open_or_create, shared_memory_name, 65536};
+        wxIPV4address addr;
+        addr.LocalHost();
 #ifdef VIEWER
-        segment.construct<process::offset_ptr<void>>(shared_callback_name)(&Frame::SoaCallback);
+		addr.Service(16800);
 #endif
-        //boost::interprocess::shared_memory_object::remove(shared_memory_name);
+		sock = new wxDatagramSocket(addr);
+#ifdef VIEWER
+        sock->SetEventHandler(*this, sock_id);
+	    sock->SetNotify(wxSOCKET_INPUT_FLAG);
+	    sock->Notify(true);
+#endif
     }
     else
-	    SoaCleanup();
-}
-
-void Frame::SoaCleanup()
-{
-    namespace process = boost::interprocess;
-
-#ifndef VIEWER
-    if (std::atomic_flag *flag = segment.find<std::atomic_flag>(shared_flag_name).first; flag)
     {
-        //if (flag->test_and_set())
-		//	flag->wait(true);
-	    segment.destroy<
-            process::basic_string<
-				char,
-    			std::char_traits<char>,
-    			process::allocator<char, process::managed_shared_memory::segment_manager>
-    		>
-    	>(shared_string_name);
-	    segment.destroy<std::atomic_flag>(shared_flag_name);
-    }
-	process::shared_memory_object::remove(shared_memory_name);
-#else
-	segment.destroy<process::offset_ptr<void>>(shared_callback_name);
+#ifdef VIEWER
+        for (uint16_t i = 0; i < 256; ++i)
+            m_image->histogram[i] = i;
+        m_image->OnSizeLinear();
+	    m_image->Refresh();
+	    m_image->Update();
 #endif
+	    SoaCleanup();
+    }
 }
 
 #ifndef VIEWER
 void Frame::RefreshImage(ImageWindow::Histogram_t&& hist)
 {
-    namespace process = boost::interprocess;
     namespace json = boost::json;
-    using allocator_t = process::allocator<char, process::managed_shared_memory::segment_manager>;
-    using string_t = process::basic_string<char, std::char_traits<char>, allocator_t>;
 
     if (m_menuItem4->IsChecked())
     {
-        std::atomic_flag *flag = segment.find_or_construct<std::atomic_flag>(shared_flag_name)();
-        //flag->wait(true);
-        //flag->test_and_set();
-        if (process::offset_ptr<void>* callback = segment.find<process::offset_ptr<void>>(shared_callback_name).first; callback)
-        {
-	        json::array arr;
-	        for (uint8_t i: hist)
-	            arr.push_back(i);
-            std::string jn = json::serialize(arr);
-		    if (string_t* str = segment.find<string_t>(shared_string_name).first; str)
-	            str->assign(jn.c_str());
-	        else
-		        segment.construct<string_t>(shared_string_name)(jn.c_str(), allocator_t(segment.get_segment_manager()));
-            reinterpret_cast<void(*)()>(callback->get())();
-        }
+        json::array arr;
+        for (uint8_t i: hist)
+            arr.push_back(i);
+        std::string jn = json::serialize(arr);
+        wxIPV4address addr;
+        addr.LocalHost();
+		addr.Service(16800);
+	    sock->SendTo(addr, jn.c_str(), jn.size());
     }
     m_image->histogram = std::move(hist);
     m_image->OnSizeLinear();
@@ -119,6 +107,11 @@ void Frame::RefreshImage(ImageWindow::Histogram_t&& hist)
     m_image->Update();
 }
 #endif
+
+void Frame::SoaCleanup()
+{
+    sock->Destroy();
+}
 
 Frame::~Frame()
 {

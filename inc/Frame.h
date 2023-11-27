@@ -7,7 +7,7 @@
 #include <wx/frame.h>
 #include <wx/menu.h>
 #include <wx/statline.h>
-#include <boost/interprocess/managed_shared_memory.hpp>
+#include <wx/socket.h>
 
 class Frame : public wxFrame
 {
@@ -18,13 +18,8 @@ class Frame : public wxFrame
 	wxMenuItem* m_menuItem4;
 	wxStaticLine* m_staticline1;
 
-	boost::interprocess::managed_shared_memory segment;
-	static wxWindowID soa_id;
-	static constexpr const char
-		*shared_memory_name = "pores_analyser",
-		*shared_callback_name = "pores_analyser:callback",
-		*shared_string_name = "pores_analyser:string",
-		*shared_flag_name = "pores_analyser:flag";
+	wxDatagramSocket* sock;
+	static wxWindowID soa_id, sock_id;
 
 public:
     Frame();
@@ -35,7 +30,7 @@ public:
 	void Load_Image(wxCommandEvent& event);
 	void OnSoa(wxCommandEvent& event);
 #ifdef VIEWER
-	static void SoaCallback();
+	void OnSocket(wxSocketEvent& event);
 #endif
 	void SoaCleanup();
 	void Exit(wxCommandEvent& event) {Destroy();}
