@@ -78,21 +78,25 @@
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
     <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
+    <LibraryPath>$(BOOST_DIR)\stage\lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
     <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
+    <LibraryPath>$(BOOST_DIR)\stage\lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
     <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
+    <LibraryPath>$(BOOST_DIR)\stage\lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Platform)_$(Configuration)\</OutDir>
     <IncludePath>inc\;$(BOOST_DIR)\;$(WXWIN)\src\png\;$(WXWIN)\src\jpeg\;$(WXWIN)\src\tiff\libtiff\;$(WXWIN)\src\zlib\;$(IncludePath)</IncludePath>
+    <LibraryPath>$(BOOST_DIR)\stage\lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -106,7 +110,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libboost_json-vc143-mt-gd-x32-1_83.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -130,7 +134,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libboost_json-vc143-mt-x32-1_83.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -145,7 +149,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libboost_json-vc143-mt-gd-x64-1_83.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -169,7 +173,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libboost_json-vc143-mt-x64-1_83.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

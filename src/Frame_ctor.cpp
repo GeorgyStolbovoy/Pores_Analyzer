@@ -3,7 +3,13 @@
 
 Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 {
-	wxSize frame_size{720, 1152}, monitor_size = wxGetDisplaySize();
+	wxSize frame_size{800,
+#ifndef VIEWER
+		1152
+#else
+		600
+#endif
+	}, monitor_size = wxGetDisplaySize();
 	if (float k = (std::min)(frame_size.x / float(monitor_size.x), frame_size.y / float(monitor_size.y)); k > 0.9) [[unlikely]]
 	{
 		frame_size.x *= 0.9/k;
@@ -21,6 +27,10 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	m_menu1->AppendSeparator();
 
+	m_menuItem4 = new wxMenuItem( m_menu1, soa_id, wxString( wxT("Сервисно-ориентированный режим") ) , wxEmptyString, wxITEM_CHECK );
+	m_menu1->Append( m_menuItem4 );
+	m_menu1->AppendSeparator();
+
 	wxMenuItem* m_menuItem3;
 	m_menuItem3 = new wxMenuItem( m_menu1, wxID_EXIT, wxString( wxT("Выход") ) , wxEmptyString, wxITEM_NORMAL );
 	m_menu1->Append( m_menuItem3 );
@@ -32,20 +42,24 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	wxBoxSizer* bSizer1 = new wxBoxSizer( wxVERTICAL );
 
 	m_image = new ImageWindow(this, wxSize{frame_size.x, int(frame_size.y*8/11.0f)});
-	bSizer1->Add( m_image, 0, wxALL|wxEXPAND, 5 );
-
+	bSizer1->Add( m_image,
+#ifndef VIEWER
+		0
+#else
+		1
+#endif
+		, wxALL|wxEXPAND, 5 );
+#ifndef VIEWER
 	m_staticline1 = new wxStaticLine( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL );
 	bSizer1->Add( m_staticline1, 0, wxEXPAND | wxALL, 5 );
 
 	m_curves = new CorrectionWindow(this, wxSize{frame_size.x, int(frame_size.y*3/11.0f)});
 	bSizer1->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
-
+#endif
 	SetSizer( bSizer1 );
 	bSizer1->SetSizeHints(this);
 
 	CreateStatusBar();
-    //SetSizeHints(1024, 768);
-	//Fit();
 	Layout();
 	Centre( wxBOTH );
 	SetIcon({wxT("wxICON_AAA")});

@@ -1,11 +1,9 @@
+#ifndef VIEWER
 #include "CorrectionWindow.h"
 #include "ImageWindow.h"
 #include "Frame.h"
-#include <wx/dcclient.h>
 #include <wx/dcbuffer.h>
 #include <boost/gil.hpp>
-#include <memory>
-#include <atomic>
 
 namespace gil = boost::gil;
 
@@ -147,7 +145,7 @@ failure:
 
 void CorrectionWindow::UpdateImage()
 {
-    std::unordered_map<uint8_t, uint8_t> histogram{256};
+    ImageWindow::Histogram_t histogram;
     int height = GetSize().GetHeight();
     double hist_step = GetSize().GetWidth() / double(256);
     auto curve_it = curves.begin();
@@ -515,3 +513,4 @@ void CorrectionWindow::OnMouseLeftUp(wxMouseEvent& event)
         }
     }
 }
+#endif

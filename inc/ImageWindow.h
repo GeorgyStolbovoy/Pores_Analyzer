@@ -11,7 +11,7 @@ class ImageWindow : public wxWindow
 	wxBitmap DCbuffer;
 
 public:
-	using Histogram_t = std::unordered_map<uint8_t, uint8_t>;
+	using Histogram_t = std::array<uint8_t, 256>;
 
 	static gil::image<gil::gray8_pixel_t> image, image_current;
 	Histogram_t histogram;
