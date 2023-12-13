@@ -173,11 +173,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="inc\CorrectionWindow.cpp" />
+    <ClCompile Include="src\CorrectionWindow.cpp" />
     <ClCompile Include="src\Entry.cpp" />
     <ClCompile Include="src\Frame.cpp" />
     <ClCompile Include="src\Frame_ctor.cpp" />
     <ClCompile Include="src\ImageWindow.cpp" />
+    <ClCompile Include="src\MeasureWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\CorrectionWindow.h" />

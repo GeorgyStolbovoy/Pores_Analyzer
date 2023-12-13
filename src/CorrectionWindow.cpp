@@ -1,11 +1,8 @@
 #include "CorrectionWindow.h"
 #include "ImageWindow.h"
 #include "Frame.h"
-#include <wx/dcclient.h>
 #include <wx/dcbuffer.h>
 #include <boost/gil.hpp>
-#include <memory>
-#include <atomic>
 
 namespace gil = boost::gil;
 
@@ -147,7 +144,7 @@ failure:
 
 void CorrectionWindow::UpdateImage()
 {
-    std::unordered_map<uint8_t, uint8_t> histogram{256};
+    std::array<uint8_t, 256> histogram;
     int height = GetSize().GetHeight();
     double hist_step = GetSize().GetWidth() / double(256);
     auto curve_it = curves.begin();
@@ -172,9 +169,7 @@ void CorrectionWindow::UpdateImage()
                 histogram[i] = std::round(255*curve_it->CalcY(x)/height);
         }
     }
-    //auto start = std::chrono::high_resolution_clock::now();
-    static_cast<Frame*>(GetParent())->RefreshImage(std::move(histogram));
-    //static_cast<Frame*>(GetParent())->SetStatusText(wxString::Format("ms: %i", (int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count()));
+    static_cast<Frame*>(GetParent())->RefreshImage(histogram);
 }
 
 void CorrectionWindow::OnPaint(wxPaintEvent& event)
@@ -329,7 +324,7 @@ void CorrectionWindow::OnKeyDown(wxKeyEvent& event)
 
 void CorrectionWindow::OnKeyUp(wxKeyEvent& event)
 {
-    if (unsigned k = event.GetRawKeyCode(); k == 0x11)
+    if (unsigned k = event.GetRawKeyCode(); k == 0x11) // Ctrl
     {
         ctrl_pressed = false;
         point_to_add = std::nullopt;

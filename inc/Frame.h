@@ -2,6 +2,7 @@
 
 #include "ImageWindow.h"
 #include "CorrectionWindow.h"
+#include "MeasureWindow.h"
 #include <wx/frame.h>
 #include <wx/menu.h>
 #include <wx/statline.h>
@@ -12,6 +13,7 @@ class Frame : public wxFrame
 {
     ImageWindow* m_image;
 	CorrectionWindow* m_curves;
+	MeasureWindow* m_measure;
 
 	wxStaticLine* m_staticline1;
 	wxSlider* m_slider2;
@@ -21,7 +23,7 @@ class Frame : public wxFrame
 
 public:
     Frame();
-	void RefreshImage(ImageWindow::Histogram_t&& hist);
+	void RefreshImage(ImageWindow::Histogram_t& hist);
 	void Load_Image(wxCommandEvent& event);
 	void Exit(wxCommandEvent& event) {Destroy();}
 

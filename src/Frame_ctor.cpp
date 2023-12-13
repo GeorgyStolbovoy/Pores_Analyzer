@@ -38,14 +38,13 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	bSizer1->Add( m_staticline1, 0, wxEXPAND | wxALL, 5 );
 
 	m_curves = new CorrectionWindow(this, wxSize{frame_size.x, int(frame_size.y*3/11.0f)});
+	m_curves->Enable(false);
 	bSizer1->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
 
 	SetSizer( bSizer1 );
 	bSizer1->SetSizeHints(this);
 
 	CreateStatusBar();
-    //SetSizeHints(1024, 768);
-	//Fit();
 	Layout();
 	Centre( wxBOTH );
 	SetIcon({wxT("wxICON_AAA")});

@@ -24,10 +24,13 @@
     <ClCompile Include="src\ImageWindow.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="inc\CorrectionWindow.cpp">
+    <ClCompile Include="src\Frame.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="src\Frame.cpp">
+    <ClCompile Include="src\CorrectionWindow.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MeasureWindow.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
