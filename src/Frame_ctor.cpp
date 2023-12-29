@@ -1,9 +1,11 @@
 #include "Frame.h"
+#include <wx/menu.h>
 #include <wx/sizer.h>
+#include <wx/statline.h>
 
 Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 {
-	wxSize frame_size{720, 1152}, monitor_size = wxGetDisplaySize();
+	wxSize frame_size{1000, 1200}, monitor_size = wxGetDisplaySize();
 	if (float k = (std::min)(frame_size.x / float(monitor_size.x), frame_size.y / float(monitor_size.y)); k > 0.9) [[unlikely]]
 	{
 		frame_size.x *= 0.9/k;
@@ -29,20 +31,28 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	this->SetMenuBar( m_menubar1 );
 
-	wxBoxSizer* bSizer1 = new wxBoxSizer( wxVERTICAL );
+	wxBoxSizer* bSizer_all = new wxBoxSizer( wxHORIZONTAL );
+
+	wxBoxSizer* bSizer_imageControl = new wxBoxSizer( wxVERTICAL );
 
 	m_image = new ImageWindow(this, wxSize{frame_size.x, int(frame_size.y*8/11.0f)});
-	bSizer1->Add( m_image, 0, wxALL|wxEXPAND, 5 );
+	bSizer_imageControl->Add( m_image, 0, wxALL|wxEXPAND, 5 );
 
-	m_staticline1 = new wxStaticLine( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL );
-	bSizer1->Add( m_staticline1, 0, wxEXPAND | wxALL, 5 );
+	wxStaticLine* m_staticline1 = new wxStaticLine( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL );
+	bSizer_imageControl->Add( m_staticline1, 0, wxEXPAND | wxALL, 5 );
 
 	m_curves = new CorrectionWindow(this, wxSize{frame_size.x, int(frame_size.y*3/11.0f)});
 	m_curves->Enable(false);
-	bSizer1->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
+	bSizer_imageControl->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
 
-	SetSizer( bSizer1 );
-	bSizer1->SetSizeHints(this);
+	bSizer_all->Add( bSizer_imageControl, 1, wxEXPAND, 5 );
+
+	m_measure = new MeasureWindow(this);
+
+	bSizer_all->Add(m_measure, 0, wxALL|wxEXPAND, 5);
+
+	SetSizer(bSizer_all);
+	bSizer_all->SetSizeHints(this);
 
 	CreateStatusBar();
 	Layout();

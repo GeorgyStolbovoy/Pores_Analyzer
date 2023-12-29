@@ -5,9 +5,7 @@ struct App : wxApp
 {
 	bool OnInit() override
 	{
-	    Frame *frame = new Frame();
-	    frame->Show(true);
-	    return true;
+	    return (new Frame())->Show(true);
 	}
 };
 

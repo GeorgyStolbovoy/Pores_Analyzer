@@ -33,6 +33,9 @@
     <ClCompile Include="src\MeasureWindow.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="src\MeasureWindow_ctor.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\Frame.h">

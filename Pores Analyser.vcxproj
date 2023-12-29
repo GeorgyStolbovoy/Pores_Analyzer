@@ -102,6 +102,8 @@
       <ConformanceMode>Default</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -124,6 +126,8 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <OmitFramePointers>true</OmitFramePointers>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -141,6 +145,8 @@
       <ConformanceMode>Default</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -163,6 +169,8 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <OmitFramePointers>true</OmitFramePointers>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -179,6 +187,7 @@
     <ClCompile Include="src\Frame_ctor.cpp" />
     <ClCompile Include="src\ImageWindow.cpp" />
     <ClCompile Include="src\MeasureWindow.cpp" />
+    <ClCompile Include="src\MeasureWindow_ctor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\CorrectionWindow.h" />

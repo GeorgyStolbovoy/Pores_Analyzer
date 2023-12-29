@@ -29,9 +29,30 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
     {
         wxSize size = GetSize();
         ptrdiff_t w = image_current.width(), h = image_current.height(), ofs_x = size.GetWidth()/2 - w/2, ofs_y = size.GetHeight()/2 - h/2;
-        unsigned char* bm_buf = new unsigned char[w*h*3], *ptr = bm_buf;
-        for (auto it = view.begin(), end = view.end(); it != end; ++it, ptr += 3)
-            memset(ptr, *it, 3);
+        unsigned char* bm_buf = new unsigned char[w*h*3];
+        if (MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure; measure->m_checkBox_colorize->IsChecked())
+        {
+            auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+            uint16_t i = it->first;
+            uint8_t* color = &measure->m_colors[3*i];
+            for (;;)
+            {
+                std::memcpy(bm_buf + 3*(it->second.first + it->second.second * w), color, 3);
+                if (++it == end) [[unlikely]]
+                    break;
+                if (it->first != i) [[unlikely]]
+                {
+                    i = it->first;
+                    color = &measure->m_colors[3*i];
+                }
+            }
+        }
+        else
+        {
+            uint8_t* ptr = bm_buf;
+            for (auto it = view.begin(), end = view.end(); it != end; ++it, ptr += 3)
+                memset(ptr, *it, 3);
+        }
         dc.DrawBitmap(wxBitmap{wxImage{w, h, bm_buf}}, ofs_x, ofs_y);
     }
 }
@@ -40,7 +61,10 @@ void ImageWindow::OnSize(wxSizeEvent& event)
 {
     DCbuffer.Create(event.GetSize().GetWidth(), event.GetSize().GetHeight());
     if (!gil::view(image_current).empty())
+    {
         OnSizeLinear();
+        static_cast<Frame*>(GetParent())->m_measure->NewMeasure();
+    }
 }
 
 void ImageWindow::OnSizeLinear()
