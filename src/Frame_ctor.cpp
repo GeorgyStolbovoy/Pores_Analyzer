@@ -1,7 +1,9 @@
 #include "Frame.h"
 #include <wx/menu.h>
+#include <wx/toolbar.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
+#include <../art/delete.xpm>
 
 Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 {
@@ -31,6 +33,12 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	this->SetMenuBar( m_menubar1 );
 
+	wxToolBar* m_toolBar = this->CreateToolBar( wxTB_FLAT|wxTB_HORIZONTAL|wxTB_TEXT, wxID_ANY );
+	m_toolBar->SetBackgroundColour( wxColour( 128, 128, 128 ) );
+	wxToolBarToolBase* m_tool_background = m_toolBar->AddTool(wxID_DELETE, wxT("Удаление пор"), wxBitmap{delete_xpm}, wxNullBitmap, wxITEM_CHECK);
+	m_toolBar->Realize();
+	SetToolBar(m_toolBar);
+
 	wxBoxSizer* bSizer_all = new wxBoxSizer( wxHORIZONTAL );
 
 	wxBoxSizer* bSizer_imageControl = new wxBoxSizer( wxVERTICAL );
@@ -44,7 +52,7 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	m_curves = new CorrectionWindow(this, wxSize{frame_size.x, int(frame_size.y*3/11.0f)});
 	m_curves->Enable(false);
 	bSizer_imageControl->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
-
+	
 	bSizer_all->Add( bSizer_imageControl, 1, wxEXPAND, 5 );
 
 	m_measure = new MeasureWindow(this);

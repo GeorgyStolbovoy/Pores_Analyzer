@@ -392,7 +392,6 @@ void CorrectionWindow::OnMouseMove(wxMouseEvent& event)
                 }
                 Refresh();
                 Update();
-                UpdateImage();
             }
             else if constexpr (std::is_same_v<T, CurveComplex*>)
             {
@@ -413,7 +412,6 @@ void CorrectionWindow::OnMouseMove(wxMouseEvent& event)
                 obj->path = std::nullopt;
                 Refresh();
                 Update();
-                UpdateImage();
             }
             else if constexpr (std::is_same_v<T, std::monostate>)
             {
@@ -470,9 +468,14 @@ void CorrectionWindow::OnMouseLeftUp(wxMouseEvent& event)
         ReleaseMouse();
         ResetHover();
         hover = std::monostate{};
-        captured = std::monostate{};
         ProcessHover<false>(event.GetX(), event.GetY());
         Refresh();
+        Update();
+        if (!std::holds_alternative<std::monostate>(captured))
+        {
+            captured = std::monostate{};
+            UpdateImage();
+        }
     }
     else if (event.ControlDown() && point_to_add.has_value())
     {
@@ -486,6 +489,7 @@ void CorrectionWindow::OnMouseLeftUp(wxMouseEvent& event)
         curve.path = std::nullopt;
         point_to_add = std::nullopt;
         Refresh();
+        Update();
     }
     else if (event.AltDown())
     {

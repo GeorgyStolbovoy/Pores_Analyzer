@@ -27,33 +27,96 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
 
     if (auto view = gil::view(image_current); !view.empty())
     {
-        wxSize size = GetSize();
-        ptrdiff_t w = image_current.width(), h = image_current.height(), ofs_x = size.GetWidth()/2 - w/2, ofs_y = size.GetHeight()/2 - h/2;
-        unsigned char* bm_buf = new unsigned char[w*h*3];
-        if (MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure; measure->m_checkBox_colorize->IsChecked())
+        struct painter
         {
-            auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
-            uint16_t i = it->first;
-            uint8_t* color = &measure->m_colors[3*i];
-            for (;;)
+            ImageWindow* self;
+            decltype(view) view;
+            ptrdiff_t w, h, ofs_x, ofs_y;
+            unsigned char *bm_buf, *alpha = nullptr;
+            wxBufferedPaintDC& dc;
+
+            painter(ImageWindow* self, const wxSize& size, wxBufferedPaintDC& dc) : 
+                self(self), view(gil::view(self->image_current)), w(self->image_current.width()), h(self->image_current.height()),
+                ofs_x(size.GetWidth()/2 - w/2), ofs_y(size.GetHeight()/2 - h/2), bm_buf(static_cast<unsigned char*>(malloc(w*h*3))), dc(dc)
             {
-                std::memcpy(bm_buf + 3*(it->second.first + it->second.second * w), color, 3);
-                if (++it == end) [[unlikely]]
-                    break;
-                if (it->first != i) [[unlikely]]
+                if (MeasureWindow* measure = static_cast<Frame*>(self->GetParent())->m_measure; measure->m_checkBox_colorize->IsChecked())
                 {
-                    i = it->first;
-                    color = &measure->m_colors[3*i];
+                    if (uint8_t transparency = std::round(255 * float(measure->m_slider_transparency->GetValue()) / 100); transparency == 0) [[unlikely]]
+                    {
+                        auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+                        uint32_t i = it->first;
+                        for (;;)
+                        {
+                            if (!measure->m_deleted_pores.contains(i))
+                            {
+                                uint8_t* color = &measure->m_colors[3*i];
+                                do
+                                {
+                                    std::memcpy(bm_buf + 3*(it->second.first + it->second.second * w), color, 3);
+                                    if (++it == end) [[unlikely]]
+                                        return;
+                                } while (it->first == i);
+                            }
+                            else
+                            {
+                                do
+                                {
+                                    uint8_t src_color = *view.at(it->second.first, it->second.second), src_colors[]{src_color, src_color, src_color};
+                                    std::memcpy(bm_buf + 3*(it->second.first + it->second.second * w), src_colors, 3);
+                                    if (++it == end) [[unlikely]]
+                                        return;
+                                } while (it->first == i);
+                            }
+                            i = it->first;
+                        }
+                    }
+                    else [[likely]] if (transparency < 255) 
+                    {
+                        fill();
+                        dc.DrawBitmap(wxBitmap{wxImage{w, h, bm_buf, true}}, ofs_x, ofs_y);
+                        alpha = static_cast<unsigned char*>(calloc(w*h, 1));
+                        auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+                        uint32_t i = it->first;
+                        for (;;)
+                        {
+                            if (!measure->m_deleted_pores.contains(i))
+                            {
+                                uint8_t* color = &measure->m_colors[3*i];
+                                do
+                                {
+                                    std::ptrdiff_t ofs = it->second.first + it->second.second * w;
+                                    std::memcpy(bm_buf + 3*ofs, color, 3);
+                                    alpha[ofs] = 255 - transparency;
+                                    if (++it == end) [[unlikely]]
+                                        return;
+                                } while (it->first == i);
+                            }
+                            else if ((it = measure->m_pores.get<MeasureWindow::tag_multiset>().lower_bound(i, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
+                                == measure->m_pores.get<MeasureWindow::tag_multiset>().end()) [[unlikely]]
+                                    return;
+                            i = it->first;
+                        }
+                    }
+                    else
+                        fill();
                 }
+                else
+                    fill();
             }
-        }
-        else
-        {
-            uint8_t* ptr = bm_buf;
-            for (auto it = view.begin(), end = view.end(); it != end; ++it, ptr += 3)
-                memset(ptr, *it, 3);
-        }
-        dc.DrawBitmap(wxBitmap{wxImage{w, h, bm_buf}}, ofs_x, ofs_y);
+            void fill()
+            {
+                uint8_t* ptr = bm_buf;
+                for (auto it = view.begin(), end = view.end(); it != end; ++it, ptr += 3)
+                    memset(ptr, *it, 3);
+            }
+            ~painter()
+            {
+                if (alpha)
+                    dc.DrawBitmap(wxBitmap{wxImage{w, h, bm_buf, alpha}}, ofs_x, ofs_y);
+                else
+                    dc.DrawBitmap(wxBitmap{wxImage{w, h, bm_buf}}, ofs_x, ofs_y);
+            }
+        } __(this, GetSize(), dc);
     }
 }
 
