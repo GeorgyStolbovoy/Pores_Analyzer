@@ -20,15 +20,9 @@ wxBEGIN_EVENT_TABLE(MeasureWindow, wxWindow)
 	EVT_CHECKBOX(MeasureWindow::checkbox_background_id, MeasureWindow::OnDeleteBackground)
 wxEND_EVENT_TABLE()
 
-#define UPDATE_IMAGE() \
-	ImageWindow* iw = static_cast<Frame*>(GetParent())->m_image; \
-	iw->Refresh(); \
-	iw->Update();
-
-
 void MeasureWindow::OnSwitchColor(wxCommandEvent& event)
 {
-	UPDATE_IMAGE()
+	update_image();
 }
 
 void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
@@ -39,7 +33,7 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 	else
 		if (m_deleted_pores.erase(id_to_delete) == 0)
 			return;
-	UPDATE_IMAGE()
+	update_image();
 }
 
 void MeasureWindow::OnChangeColor(wxCommandEvent& event)
@@ -47,19 +41,19 @@ void MeasureWindow::OnChangeColor(wxCommandEvent& event)
 	m_colors.erase(m_colors.begin() + 3*m_pores.get<tag_hashset>().size(), m_colors.end());
 	for (uint8_t& channel: m_colors)
 		channel = uint8_t(m_random(m_rand_engine));
-	UPDATE_IMAGE()
+	update_image();
 }
 
 void MeasureWindow::OnChangeDifference(wxScrollEvent& event)
 {
 	if (auto view = gil::view(ImageWindow::image_current); !view.empty())
 		Measure(view.xy_at(0, 0));
-	UPDATE_IMAGE()
+	update_image();
 }
 
 void MeasureWindow::OnChangeTransparency(wxScrollEvent& event)
 {
-	UPDATE_IMAGE()
+	update_image();
 }
 
 void MeasureWindow::Measure(locator_t&& loc)
@@ -105,44 +99,106 @@ void MeasureWindow::NewMeasure()
 
 void MeasureWindow::OnErosion(wxCommandEvent& event)
 {
-	std::vector<std::pair<int16_t, int16_t>> structure{{0, 0}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}};
+	using structure_t = std::vector<std::pair<int16_t, int16_t>>;
+	structure_t structure{{0, 0}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}};
 
-	std::vector<locator_t::cached_location_t> loc_cache;
-	loc_cache.reserve(structure.size());
-	locator_t loc = gil::view(ImageWindow::image_current).pixels();
-	int16_t most_left_loc = INT16_MAX, most_bottom_loc = INT16_MAX, most_right_loc = INT16_MIN, most_top_loc = INT16_MIN;
-	for (auto [dx, dy] : structure)
+	struct eroser
 	{
-		loc_cache.push_back(loc.cache_location(dx, dy));
-		if (dx < most_left_loc) [[unlikely]]
-			most_left_loc = dx;
-		if (dy < most_bottom_loc) [[unlikely]]
-			most_bottom_loc = dy;
-		if (dx > most_right_loc) [[unlikely]]
-			most_right_loc = dx;
-		if (dy > most_top_loc) [[unlikely]]
-			most_top_loc = dy;
-	}
+		MeasureWindow* self;
+		const structure_t& structure;
+		decltype(m_pores) erosed_pores;
+		decltype(m_pores)::iterator it, end;
+		decltype(m_pores)::node_type node;
 
-	for (auto it = m_pores.get<tag_multiset>().begin(), end = m_pores.get<tag_multiset>().end(); it != end;)
-	{
-		uint32_t pore_id = it->first;
-		std::ptrdiff_t most_left = width-1, most_bottom = 0, most_right = 0, most_top = height-1;
-		do
+		eroser(MeasureWindow* self, structure_t& structure) : self(self), structure(structure), it(self->m_pores.get<tag_multiset>().begin()), end(self->m_pores.get<tag_multiset>().end())
 		{
-			if (it->second.first < most_left) [[unlikely]]
-				most_left = it->second.first;
-			if (it->second.first > most_right) [[unlikely]]
-				most_right = it->second.first;
-			if (it->second.second < most_top) [[unlikely]]
-				most_top = it->second.second;
-			if (it->second.second > most_bottom) [[unlikely]]
-				most_bottom = it->second.second;
-		} while (++it != end && it->first == pore_id);
-		std::ptrdiff_t bound_left, bound_bottom, bound_right, bound_top;
-		auto er_loc = gil::view(ImageWindow::image_current).xy_at(most_left, most_top);
-		// FIXME : переделать на простую итерацию по пикселям поры
-	}
+			for (std::vector<decltype(it)> pixels_to_erase;;)
+			{
+				uint32_t pore_id = it->first;
+				do
+				{
+					for (auto& pair: structure)
+					{
+						if (std::ptrdiff_t coord_x = it->second.first + pair.first, coord_y = it->second.second + pair.second;
+							coord_x >= 0 && coord_x < self->width || coord_y >= 0 || coord_y < self->height)
+						{
+							if (auto pore_pixel_it = self->m_pores.get<tag_hashset>().find(coord_t{coord_x, coord_y});
+								pore_pixel_it == self->m_pores.get<tag_hashset>().end() || pore_pixel_it->first != pore_id)
+							{
+								pixels_to_erase.push_back(it);
+								break;
+							}
+						}
+					}
+					if (++it == end) [[unlikely]]
+					{
+						for (auto& it_erase: pixels_to_erase)
+							self->m_pores.get<tag_multiset>().erase(it_erase);
+						separate_pores();
+						return;
+					}
+				} while (it->first == pore_id);
+			}
+		}
+		void separate_pores()
+		{
+			it = self->m_pores.get<tag_multiset>().begin();
+			decltype(erosed_pores)::iterator it_erosed, end_erosed = erosed_pores.get<tag_multiset>().end();
+			auto inspect_neighbours = [this, &it_erosed](std::ptrdiff_t dx, std::ptrdiff_t dy)
+			{
+				if (auto near_it = self->m_pores.get<tag_hashset>().find(coord_t{it_erosed->second.first + dx, it_erosed->second.second + dy});
+					near_it != self->m_pores.get<tag_hashset>().end())
+				{
+					node = self->m_pores.get<tag_hashset>().extract(near_it);
+					node.value().first = self->pores_count;
+					erosed_pores.get<tag_hashset>().insert(std::move(node));
+				}
+			};
+
+			self->pores_count = 0;
+			for (;;)
+			{
+				if (uint32_t deleted_id = it->first; self->m_deleted_pores.contains(deleted_id)) [[unlikely]]
+				{
+					++self->pores_count;
+					do
+					{
+						node = self->m_pores.get<tag_multiset>().extract(it++);
+						node.value().first = self->pores_count;
+						erosed_pores.get<tag_hashset>().insert(std::move(node));
+						if (it == end) [[unlikely]]
+							return;
+					} while (it->first == deleted_id);
+					continue;
+				}
+				node = self->m_pores.get<tag_multiset>().extract(it);
+				node.value().first = ++self->pores_count;
+				it_erosed = erosed_pores.get<tag_multiset>().insert(std::move(node)).position;
+				do
+				{
+					inspect_neighbours(0, 1);
+					inspect_neighbours(1, 1);
+					inspect_neighbours(1, 0);
+					inspect_neighbours(1, -1);
+					inspect_neighbours(0, -1);
+					inspect_neighbours(-1, -1);
+					inspect_neighbours(-1, 0);
+					inspect_neighbours(-1, 1);
+				} while (++it_erosed != end_erosed);
+				it = self->m_pores.get<tag_multiset>().begin();
+				if (it == end) [[unlikely]]
+					return;
+			}
+		}
+		~eroser()
+		{
+			self->m_pores = std::move(erosed_pores);
+			self->m_deleted_pores.clear();
+			if (self->m_checkBox_background->IsChecked())
+				self->m_deleted_pores.insert(self->get_biggest_pore_id());
+			self->update_image();
+		}
+	} __(this, structure);
 }
 
 void MeasureWindow::OnDilation(wxCommandEvent& event)
@@ -216,4 +272,11 @@ uint32_t MeasureWindow::get_biggest_pore_id()
 			id_to_delete = i;
 		}
 	return id_to_delete;
+}
+
+void MeasureWindow::update_image()
+{
+	ImageWindow* iw = static_cast<Frame*>(GetParent())->m_image;
+	iw->Refresh();
+	iw->Update();
 }

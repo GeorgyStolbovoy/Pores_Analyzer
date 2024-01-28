@@ -72,6 +72,7 @@ private:
 	void Measure(locator_t&& loc = gil::view(ImageWindow::image_current).xy_at(0, 0));
 	void inspect_pore(const inspecting_pixel& insp_pixel);
 	uint32_t get_biggest_pore_id();
+	void update_image();
 
 	wxDECLARE_EVENT_TABLE();
 };
