@@ -36,6 +36,9 @@
     <ClCompile Include="src\MeasureWindow_ctor.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="src\MorphologyWindow.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\Frame.h">
@@ -51,6 +54,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="inc\MeasureWindow.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MorphologyWindow.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

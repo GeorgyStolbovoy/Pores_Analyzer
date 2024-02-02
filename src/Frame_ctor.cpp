@@ -3,7 +3,12 @@
 #include <wx/toolbar.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
+#include <../art/filesave.xpm>
+#include <../art/fileopen.xpm>
+#include <../art/find.xpm>
+#include <../art/plus.xpm>
 #include <../art/delete.xpm>
+#include <../art/redo.xpm>
 
 Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 {
@@ -35,7 +40,21 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	wxToolBar* m_toolBar = this->CreateToolBar( wxTB_FLAT|wxTB_HORIZONTAL|wxTB_TEXT, wxID_ANY );
 	m_toolBar->SetBackgroundColour( wxColour( 128, 128, 128 ) );
-	wxToolBarToolBase* m_tool_background = m_toolBar->AddTool(wxID_DELETE, wxT("Удаление пор"), wxBitmap{delete_xpm}, wxNullBitmap, wxITEM_CHECK);
+	wxToolBarToolBase* m_tool_save = m_toolBar->AddTool( wxID_SAVE, wxT("Сохранение"), wxBitmap{filesave_xpm}, wxNullBitmap, wxITEM_NORMAL);
+
+	wxToolBarToolBase* m_tool_load = m_toolBar->AddTool( wxID_OPEN, wxT("Загрузка"), wxBitmap{fileopen_xpm}, wxNullBitmap, wxITEM_NORMAL);
+
+	m_toolBar->AddSeparator();
+
+	wxToolBarToolBase* m_tool_scale = m_toolBar->AddTool( wxID_FIND, wxT("Масштаб"), wxBitmap{find_xpm}, wxNullBitmap, wxITEM_RADIO);
+
+	wxToolBarToolBase* m_tool_select = m_toolBar->AddTool( wxID_SELECTALL, wxT("Выделение пор"), wxBitmap{plus_xpm}, wxNullBitmap, wxITEM_RADIO);
+
+	wxToolBarToolBase* m_tool_background = m_toolBar->AddTool(wxID_DELETE, wxT("Удаление пор"), wxBitmap{delete_xpm}, wxNullBitmap, wxITEM_RADIO);
+
+	wxToolBarToolBase* m_tool_recovery = m_toolBar->AddTool( wxID_REVERT, wxT("Восстан-е пор"), wxBitmap{redo_xpm}, wxNullBitmap, wxITEM_RADIO);
+
+	m_toolBar->AddSeparator();
 	m_toolBar->Realize();
 	SetToolBar(m_toolBar);
 

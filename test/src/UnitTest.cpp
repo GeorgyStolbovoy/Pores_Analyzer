@@ -6,7 +6,11 @@
 
 BOOST_AUTO_TEST_CASE(algorithm_test)
 {
-	constexpr std::initializer_list<std::ptrdiff_t> ofs{0, 1, 1, 1, 1, 0, 1, -1, 0, -1, -1, -1, -1, 0, -1, 1};
-	for (auto ofs_it = ofs.begin(), ofs_end = ofs.end(); ofs_it != ofs_end; ++ofs_it)
-		BOOST_TEST_MESSAGE(*ofs_it);
+	uint32_t deleted_id = 0;
+	auto test = [this, &deleted_id]()
+	{
+		BOOST_TEST_MESSAGE(deleted_id);
+	};
+	deleted_id = 5;
+	test();
 }

@@ -13,9 +13,13 @@ public:
 	MeasureWindow* m_measure;
 
     Frame();
-	void RefreshImage(ImageWindow::Histogram_t& hist);
-	void Load_Image(wxCommandEvent& event);
-	void Exit(wxCommandEvent& event) {Destroy();}
+	void OnLoad(wxCommandEvent& event);
+	void OnSave(wxCommandEvent& event);
+	void OnToolbarScale(wxCommandEvent& event);
+	void OnToolbarSelect(wxCommandEvent& event);
+	void OnToolbarDelete(wxCommandEvent& event);
+	void OnToolbarRecovery(wxCommandEvent& event);
+	template <class E> void Exit(E& event) {Destroy();}
 
 	wxDECLARE_EVENT_TABLE();
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ImageWindow.h"
+#include "MorphologyWindow.h"
 #include <wx/slider.h>
 #include <wx/checkbox.h>
 #include <set>
@@ -15,35 +16,36 @@
 
 namespace mi = boost::multi_index;
 
-// TODO : сменить хэш на что-то очень простое
-
 class MeasureWindow : public wxWindow
 {
 	using coord_t = std::pair<std::ptrdiff_t, std::ptrdiff_t>;
 	using pore_coord_t = std::pair<uint32_t, coord_t>;
-	using locator_t = decltype(ImageWindow::image_current)::view_t::xy_locator;
+	using locator_t = ImageWindow::Image_t::view_t::xy_locator;
 	using inspecting_pixel = std::pair<locator_t, coord_t>;
 	struct pore_comp_t {bool operator()(const coord_t& lhs, const coord_t& rhs) const {return lhs.first == rhs.first && lhs.second == rhs.second;}};
 
 public:
-	static wxWindowID slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id, checkbox_color_id, checkbox_background_id;
-	wxSlider *m_slider_algorithm, *m_slider_transparency;
-	wxCheckBox *m_checkBox_colorize, *m_checkBox_background;
-	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
-
 	struct tag_multiset{}; struct tag_hashset{}; struct tag_sequenced{};
-	boost::multi_index_container<
+	using pores_container = boost::multi_index_container<
 		pore_coord_t,
 		mi::indexed_by<
 			mi::ordered_non_unique<mi::tag<tag_multiset>, mi::key<&pore_coord_t::first>>,
 			mi::hashed_unique<mi::tag<tag_hashset>, mi::key<&pore_coord_t::second>, boost::hash<coord_t>, pore_comp_t>
 		>
-	> m_pores;
+	>;
+
+	static wxWindowID slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id, checkbox_color_id, checkbox_background_id;
+	MorphologyWindow *m_window_erosion, *m_window_dilation;
+	wxSlider *m_slider_algorithm, *m_slider_transparency;
+	wxCheckBox *m_checkBox_colorize, *m_checkBox_background;
+	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
+
+	pores_container m_pores;
 	std::set<uint32_t> m_deleted_pores;
 	std::vector<uint8_t> m_colors;
 
 	MeasureWindow(wxWindow *parent);
-	void NewMeasure();
+	void NewMeasure(ImageWindow::Image_t::view_t view);
 	void OnChangeDifference(wxScrollEvent& event);
 	void OnChangeTransparency(wxScrollEvent& event);
 	void OnChangeColor(wxCommandEvent& event);
@@ -69,10 +71,11 @@ private:
 	uint32_t pores_count;
 	uint8_t diff;
 
-	void Measure(locator_t&& loc = gil::view(ImageWindow::image_current).xy_at(0, 0));
+	void Measure(locator_t loc);
 	void inspect_pore(const inspecting_pixel& insp_pixel);
 	uint32_t get_biggest_pore_id();
 	void update_image();
+	void after_measure();
 
 	wxDECLARE_EVENT_TABLE();
 };

@@ -1,31 +1,26 @@
 #include "Frame.h"
 #include <wx/filedlg.h>
 #include <boost/gil/io/read_image.hpp>
-#include <boost/gil/extension/io/png.hpp>
-#include <boost/gil/extension/io/jpeg.hpp>
-#include <boost/gil/extension/io/tiff.hpp>
-#include <boost/gil/extension/io/bmp.hpp>
 
 wxBEGIN_EVENT_TABLE(Frame, wxWindow)
-    EVT_MENU(wxID_OPEN, Frame::Load_Image)
-    EVT_MENU(wxID_EXIT, Frame::Exit)
+    EVT_MENU(wxID_OPEN, Frame::OnLoad)
+    EVT_MENU(wxID_EXIT, Frame::Exit<wxCommandEvent>)
+    EVT_TOOL(wxID_SAVE, Frame::OnSave)
+    EVT_TOOL(wxID_OPEN, Frame::OnLoad)
+    EVT_TOOL(wxID_FIND, Frame::OnToolbarScale)
+    EVT_TOOL(wxID_SELECTALL, Frame::OnToolbarSelect)
+    EVT_TOOL(wxID_DELETE, Frame::OnToolbarDelete)
+    EVT_TOOL(wxID_REVERT, Frame::OnToolbarRecovery)
+    EVT_CLOSE(Frame::Exit<wxCloseEvent>)
 wxEND_EVENT_TABLE()
 
-void Frame::Load_Image(wxCommandEvent& event)
+void Frame::OnLoad(wxCommandEvent& event)
 {
     wxFileDialog dlg{this, "Выберите изображение", wxEmptyString, wxEmptyString, "Images (png, jpg, tiff)|*.png;*.jpg;*.jpeg;*.tiff", wxFD_OPEN|wxFD_FILE_MUST_EXIST};
     if (dlg.ShowModal() == wxID_OK)
     {
-        if (auto&& path = dlg.GetPath(); path.EndsWith(".png"))
-            gil::read_and_convert_image(path.c_str().AsChar(), ImageWindow::image, gil::png_tag());
-        else if (path.EndsWith(".jpg") || path.EndsWith(".jpeg"))
-            gil::read_and_convert_image(path.c_str().AsChar(), ImageWindow::image, gil::jpeg_tag());
-        else if (path.EndsWith(".tiff"))
-            gil::read_and_convert_image(path.c_str().AsChar(), ImageWindow::image, gil::tiff_tag());
-        else if (path.EndsWith(".bmp"))
-            gil::read_and_convert_image(path.c_str().AsChar(), ImageWindow::image, gil::bmp_tag());
-        m_image->OnSizeLinear();
-        m_measure->NewMeasure();
+        m_image->Load(dlg.GetPath());
+        m_measure->NewMeasure(gil::view(m_image->image));
         m_curves->Enable(true);
         m_curves->path_histogram = std::nullopt;
         Refresh();
@@ -33,11 +28,27 @@ void Frame::Load_Image(wxCommandEvent& event)
     }
 }
 
-void Frame::RefreshImage(ImageWindow::Histogram_t& hist)
+void Frame::OnSave(wxCommandEvent& event)
 {
-    m_image->histogram = hist;
-    m_image->OnSizeLinear();
-    m_measure->NewMeasure();
-    m_image->Refresh();
-    m_image->Update();
+    ;
+}
+
+void Frame::OnToolbarScale(wxCommandEvent& event)
+{
+    m_image->state = ImageWindow::State::SCALING;
+}
+
+void Frame::OnToolbarSelect(wxCommandEvent& event)
+{
+    m_image->state = ImageWindow::State::SELECTING;
+}
+
+void Frame::OnToolbarDelete(wxCommandEvent& event)
+{
+    m_image->state = ImageWindow::State::DELETING;
+}
+
+void Frame::OnToolbarRecovery(wxCommandEvent& event)
+{
+    m_image->state = ImageWindow::State::RECOVERING;
 }

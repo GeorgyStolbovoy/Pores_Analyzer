@@ -169,7 +169,7 @@ void CorrectionWindow::UpdateImage()
                 histogram[i] = std::round(255*curve_it->CalcY(x)/height);
         }
     }
-    static_cast<Frame*>(GetParent())->RefreshImage(histogram);
+    static_cast<Frame*>(GetParent())->m_image->ApplyHistogram(histogram);
 }
 
 void CorrectionWindow::OnPaint(wxPaintEvent& event)
@@ -184,7 +184,7 @@ void CorrectionWindow::OnPaint(wxPaintEvent& event)
     gc->SetTransform(gc->CreateMatrix(1 - 13/double(width), 0, 0, 13/double(height) - 1, 6.5, height - 6.5));
     
     // Ãטסעמדנאללא
-    if (auto view = gil::view(ImageWindow::image); !view.empty())
+    if (auto view = gil::view(static_cast<Frame*>(GetParent())->m_image->image); !view.empty())
     {
         if (!path_histogram.has_value()) [[unlikely]]
         {

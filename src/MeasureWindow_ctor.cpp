@@ -39,8 +39,7 @@ MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDe
 
 	wxBoxSizer* sizer_erosion = new wxBoxSizer( wxVERTICAL );
 
-	wxWindow* m_window_erosion = new wxWindow( this, wxID_ANY, wxDefaultPosition, wxSize(-1, 128) );
-	m_window_erosion->SetBackgroundColour(*wxLIGHT_GREY);
+	m_window_erosion = new MorphologyWindow(this);
 	sizer_erosion->Add( m_window_erosion, 1, wxALL|wxEXPAND, 5 );
 
 	m_button_erosion = new wxButton( this, button_erosion_id, wxT("Эрозия"), wxDefaultPosition, wxDefaultSize, 0 );
@@ -50,8 +49,7 @@ MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDe
 
 	wxBoxSizer* sizer_dilation = new wxBoxSizer( wxVERTICAL );
 
-	wxWindow* m_window_dilation = new wxWindow( this, wxID_ANY, wxDefaultPosition, wxSize(-1, 128) );
-	m_window_dilation->SetBackgroundColour(*wxLIGHT_GREY);
+	m_window_dilation = new MorphologyWindow(this);
 	sizer_dilation->Add( m_window_dilation, 1, wxALL|wxEXPAND, 5 );
 
 	m_button_dilation = new wxButton( this, button_dilation_id, wxT("Наращивание"), wxDefaultPosition, wxDefaultSize, 0 );
