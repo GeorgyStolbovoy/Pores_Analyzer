@@ -322,6 +322,7 @@ uint32_t MeasureWindow::get_biggest_pore_id()
 void MeasureWindow::update_image()
 {
 	ImageWindow* iw = static_cast<Frame*>(GetParent())->m_image;
+	iw->marked_image = wxNullImage;
 	iw->Refresh();
 	iw->Update();
 }

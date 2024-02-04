@@ -1,4 +1,5 @@
 #include "MorphologyWindow.h"
+#include "Utils.h"
 #include <wx/sizer.h>
 #include <wx/button.h>
 #include <wx/dcbuffer.h>
@@ -6,16 +7,8 @@
 #include "wx/msgdlg.h"
 #include <memory>
 
-#define INITIAL_STRUCTURE_OF(Type) Type{{0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}}
 
-template <class A, class B>
-A nearest_integer(B x)
-{
-	if (A r = x; std::abs(x - r) < 0.5)
-		return r;
-	else
-		return x > 0 ? r + 1 : r - 1;
-}
+#define INITIAL_STRUCTURE_OF(Type) Type{{0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}}
 
 // MorphologyWindow
 

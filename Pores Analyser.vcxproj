@@ -196,6 +196,7 @@
     <ClInclude Include="inc\ImageWindow.h" />
     <ClInclude Include="inc\MeasureWindow.h" />
     <ClInclude Include="inc\MorphologyWindow.h" />
+    <ClInclude Include="inc\Utils.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>

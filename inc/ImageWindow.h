@@ -12,6 +12,7 @@ struct ImageWindow : wxWindow
 	using Histogram_t = std::array<uint8_t, 256>;
 
 	Image_t image;
+	wxImage marked_image;
 	Histogram_t histogram;
 	enum class State : uint8_t {SCALING, SELECTING, DELETING, RECOVERING} state = State::SCALING;
 	double scale_ratio;

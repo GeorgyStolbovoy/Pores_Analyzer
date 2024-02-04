@@ -59,6 +59,9 @@
     <ClInclude Include="inc\MorphologyWindow.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="inc\Utils.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc">
