@@ -36,107 +36,136 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
 
     if (auto view = gil::view(image); !view.empty())
     {
-        if (!marked_image.IsOk())
+        auto paint = [this, &dc](std::ptrdiff_t w, std::ptrdiff_t h)
         {
-	        struct painter
-	        {
-	            ImageWindow* self;
-	            Image_t::view_t view;
-	            ptrdiff_t w, h, new_w, new_h, ofs_x, ofs_y;
-	            unsigned char *bm_buf, *alpha = nullptr;
-	            wxBufferedPaintDC& dc;
-
-	            painter(ImageWindow* self, const wxSize& size, wxBufferedPaintDC& dc) : 
-	                self(self), view(gil::view(self->image)), w(self->image.width()), h(self->image.height()), new_w(self->scale_ratio*w), new_h(self->scale_ratio*h),
-	                ofs_x(size.GetWidth()/2 - new_w/2), ofs_y(size.GetHeight()/2 - new_h/2), bm_buf(static_cast<unsigned char*>(malloc(w*h*3))), dc(dc)
-	            {
-	                if (MeasureWindow* measure = static_cast<Frame*>(self->GetParent())->m_measure; measure->m_checkBox_colorize->IsChecked())
-	                {
-	                    if (uint8_t transparency = std::round(255 * float(measure->m_slider_transparency->GetValue()) / 100);
-	                        transparency == 0 && measure->m_deleted_pores.empty() && self->image.width()*self->image.height() == measure->m_pores.size()) [[unlikely]]
-	                    {
-	                        auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
-	                        uint32_t i = it->first;
-	                        for (;;)
-	                        {
-	                            uint8_t* color = &measure->m_colors[3*(i-1)];
-	                            do
-	                            {
-	                                std::memcpy(bm_buf + 3*(it->second.first + it->second.second * w), color, 3);
-	                                if (++it == end) [[unlikely]]
-	                                    return;
-	                            } while (it->first == i);
-	                            i = it->first;
-	                        }
-	                    }
-	                    else [[likely]] if (transparency < 255) 
-	                    {
-	                        fill();
-	                        wxImage image{w, h, bm_buf, true};
-	                        image.Rescale(new_w, new_h);
-	                        dc.DrawBitmap(wxBitmap{image}, ofs_x, ofs_y);
-	                        alpha = static_cast<unsigned char*>(calloc(w*h, 1));
-	                        auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
-	                        uint32_t i = it->first;
-	                        for (;;)
-	                        {
-	                            if (!measure->m_deleted_pores.contains(i))
-	                            {
-	                                uint8_t* color = &measure->m_colors[3*(i-1)];
-	                                do
-	                                {
-	                                    std::ptrdiff_t ofs = it->second.first + it->second.second * w;
-	                                    std::memcpy(bm_buf + 3*ofs, color, 3);
-	                                    alpha[ofs] = 255 - transparency;
-	                                    if (++it == end) [[unlikely]]
-	                                        return;
-	                                } while (it->first == i);
-	                            }
-	                            else if ((it = measure->m_pores.get<MeasureWindow::tag_multiset>().lower_bound(i, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
-	                                == measure->m_pores.get<MeasureWindow::tag_multiset>().end()) [[unlikely]]
-	                                    return;
-	                            i = it->first;
-	                        }
-	                    }
-	                    else
-	                        fill();
-	                }
-	                else
-	                    fill();
-	            }
-	            void fill()
-	            {
-	                uint8_t* ptr = bm_buf;
-	                for (auto it = view.begin(), end = view.end(); it != end; ++it, ptr += 3)
-	                    memset(ptr, *it, 3);
-	            }
-	            ~painter()
-	            {
-	                if (alpha)
-                        self->marked_image.Create(w, h, bm_buf, alpha);
-	                else
-                        self->marked_image.Create(w, h, bm_buf);
-                    int xx = nearest_integer<int>(self->scale_center.x - self->GetSize().GetWidth()/self->scale_ratio/2);
-                    int yy = nearest_integer<int>(self->scale_center.y - self->GetSize().GetHeight()/self->scale_ratio/2);
-                    int ww = nearest_integer<int>(self->GetSize().GetWidth()/self->scale_ratio);
-                    int hh = nearest_integer<int>(self->GetSize().GetHeight()/self->scale_ratio);
-	                wxImage img = self->marked_image.GetSubImage({xx > 0 ? xx : 0, yy > 0 ? yy : 0, ww < w ? ww : w, hh < h ? hh : h});
-	                img.Rescale(new_w, new_h);
-	                dc.DrawBitmap(wxBitmap{img}, ofs_x, ofs_y);
-	            }
-	        } __(this, GetSize(), dc);
-        }
-        else
-        {
-            std::ptrdiff_t w = image.width(), h = image.height(), new_w = scale_ratio*w, new_h = scale_ratio*h, ofs_x = GetSize().GetWidth()/2 - new_w/2, ofs_y = GetSize().GetHeight()/2 - new_h/2;
-            int xx = nearest_integer<int>(scale_center.x - GetSize().GetWidth()/scale_ratio/2);
-            int yy = nearest_integer<int>(scale_center.y - GetSize().GetHeight()/scale_ratio/2);
-            int ww = nearest_integer<int>(GetSize().GetWidth()/scale_ratio);
-            int hh = nearest_integer<int>(GetSize().GetHeight()/scale_ratio);
-            wxImage img = marked_image.GetSubImage({xx > 0 ? xx : 0, yy > 0 ? yy : 0, ww < w ? ww : w, hh < h ? hh : h});
+            std::ptrdiff_t win_w = GetSize().GetWidth(), win_h = GetSize().GetHeight(), scaled_height = nearest_integer<int>(win_h/scale_ratio), scaled_width = nearest_integer<int>(win_w/scale_ratio);
+            if (scaled_height > h)
+                scaled_height = h;
+            if (scaled_width > w)
+                scaled_width = w;
+            int xx, yy;
+            if (scale_center.x <= scaled_width/2)
+            {
+                xx = 0;
+                scale_center.x = nearest_integer<int>(scaled_width/2.0f);
+            }
+            else if (scale_center.x < w - scaled_width/2)
+                xx = nearest_integer<int>(scale_center.x - scaled_width/2.0f);
+            else
+            {
+                xx = w - scaled_width;
+                scale_center.x = nearest_integer<int>(w - scaled_width/2.0f);
+            }
+            if (scale_center.y <= scaled_height/2)
+            {
+                yy = 0;
+                scale_center.y = nearest_integer<int>(scaled_height/2.0f);
+            }
+            else if (scale_center.y < h - scaled_height/2)
+                yy = nearest_integer<int>(scale_center.y - scaled_height/2.0f);
+            else
+            {
+                yy = h - scaled_height;
+                scale_center.y = nearest_integer<int>(h - scaled_height/2.0f);
+            }
+            wxImage img = marked_image.GetSubImage({xx, yy, nearest_integer<int>(scaled_width), nearest_integer<int>(scaled_height)});
+            double final_ratio = std::min(win_w/double(scaled_width), win_h/double(scaled_height));
+            std::ptrdiff_t new_w = nearest_integer<int>(final_ratio*scaled_width), new_h = nearest_integer<int>(final_ratio*scaled_height);
+            wxCoord ofs_x = nearest_integer<wxCoord>(win_w/2.0f - new_w/2.0f), ofs_y = nearest_integer<wxCoord>(win_h/2.0f - new_h/2.0f);
             img.Rescale(new_w, new_h);
             dc.DrawBitmap(wxBitmap{img}, ofs_x, ofs_y);
+        };
+
+        if (!marked_image.IsOk())
+        {
+	        ptrdiff_t w = image.width(), h = image.height();
+            std::unique_ptr<unsigned char[]> bm_buf{new unsigned char[w*h*3]{}};
+            wxMemoryDC mem_dc;
+            auto fill = [=, buf = bm_buf.get(), &view, &mem_dc]()
+            {
+                uint8_t* ptr = buf;
+                for (auto it = view.begin(), end = view.end(); it != end; ++it, ptr += 3)
+                    memset(ptr, *it, 3);
+                mem_dc.SelectObjectAsSource(wxBitmap{wxImage{w, h, buf, true}});
+            };
+            auto finalize = [=, &mem_dc, &paint, buf = bm_buf.get()](unsigned char* alpha = nullptr)
+            {
+                if (alpha)
+                    mem_dc.DrawBitmap(wxBitmap{wxImage{w, h, buf, alpha, true}}, 0, 0);
+                else
+                    mem_dc.SelectObjectAsSource(wxBitmap{wxImage{w, h, buf, true}});
+                marked_image = mem_dc.GetSelectedBitmap().ConvertToImage();
+                paint(w, h);
+            };
+
+	        if (MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure; measure->m_checkBox_colorize->IsChecked())
+	        {
+	            if (uint8_t transparency = std::round(255 * float(measure->m_slider_transparency->GetValue()) / 100);
+	                transparency == 0 && measure->m_deleted_pores.empty() && image.width()*image.height() == measure->m_pores.size()) [[unlikely]]
+	            {
+	                auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+	                uint32_t i = it->first;
+	                for (;;)
+	                {
+	                    uint8_t* color = &measure->m_colors[3*(i-1)];
+	                    do
+	                    {
+	                        std::memcpy(bm_buf.get() + 3*(it->second.first + it->second.second * w), color, 3);
+	                        if (++it == end) [[unlikely]]
+                            {
+                                finalize();
+	                            return;
+                            }
+	                    } while (it->first == i);
+	                    i = it->first;
+	                }
+	            }
+	            else [[likely]] if (transparency < 255) 
+	            {
+	                fill();
+                    std::unique_ptr<unsigned char[]> alpha{new unsigned char[w*h]{}};
+	                auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+	                uint32_t i = it->first;
+	                for (;;)
+	                {
+	                    if (!measure->m_deleted_pores.contains(i))
+	                    {
+	                        uint8_t* color = &measure->m_colors[3*(i-1)];
+	                        do
+	                        {
+	                            std::ptrdiff_t ofs = it->second.first + it->second.second * w;
+	                            std::memcpy(bm_buf.get() + 3*ofs, color, 3);
+	                            alpha.get()[ofs] = 255 - transparency;
+	                            if (++it == end) [[unlikely]]
+                                {
+                                    finalize(alpha.get());
+	                                return;
+                                }
+	                        } while (it->first == i);
+	                    }
+	                    else if ((it = measure->m_pores.get<MeasureWindow::tag_multiset>().lower_bound(i, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
+	                        == measure->m_pores.get<MeasureWindow::tag_multiset>().end()) [[unlikely]]
+                        {
+                            finalize(alpha.get());
+	                        return;
+                        }
+	                    i = it->first;
+	                }
+	            }
+	            else
+                {
+	                fill();
+                    finalize();
+                }
+	        }
+	        else
+            {
+	            fill();
+                finalize();
+            }
         }
+        else
+            paint(image.width(), image.height());
     }
 }
 
@@ -152,29 +181,44 @@ void ImageWindow::OnMouseMove(wxMouseEvent& event)
 {
     if (state == State::SCALING && HasCapture())
     {
-        scale_by_click = false;
-        ;
+        scale_center.x += nearest_integer<int>((mouse_last_pos.x - event.GetX())/scale_ratio);
+        scale_center.y += nearest_integer<int>((mouse_last_pos.y - event.GetY())/scale_ratio);
+        mouse_last_pos.x = event.GetX();
+        mouse_last_pos.y = event.GetY();
+        Refresh();
+        Update();
     }
 }
 
 void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
 {
     CaptureMouse();
-    scale_by_click = true;
+    if (state == State::SCALING)
+    {
+        mouse_last_pos.x = event.GetX();
+        mouse_last_pos.y = event.GetY();
+    }
+    else if (state == State::SELECTING)
+    {
+        MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(
+                MeasureWindow::pores_container::value_type::second_type{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)}
+            ); find_it != measure->m_pores.get<MeasureWindow::tag_hashset>().end() && !measure->m_deleted_pores.contains(find_it->first))
+            measure->m_selected_pores.insert(find_it->first);
+    }
 }
 
 void ImageWindow::OnMouseLeftUp(wxMouseEvent& event)
 {
     if (HasCapture())
         ReleaseMouse();
-    if (scale_by_click)
-        ;
 }
 
 void ImageWindow::OnMouseRightDown(wxMouseEvent& event)
 {
     CaptureMouse();
-    scale_by_click = true;
+    mouse_last_pos.x = event.GetX();
+    mouse_last_pos.y = event.GetY();
 }
 
 void ImageWindow::OnMouseRightUp(wxMouseEvent& event)
@@ -185,30 +229,39 @@ void ImageWindow::OnMouseRightUp(wxMouseEvent& event)
 
 void ImageWindow::OnMouseWheel(wxMouseEvent& event)
 {
-    scale_center.x += event.GetX()/scale_ratio - scale_center.x;
-    scale_center.y += event.GetY()/scale_ratio - scale_center.y;
-    if (event.GetWheelRotation() > 0)
+    if (state == State::SCALING)
     {
-        if (double dif = 5 - scale_ratio; dif > 0)
+        if (event.GetWheelRotation() > 0)
         {
-            scale_ratio += dif >= 0.1 ? 0.1 : dif;
-            Refresh();
-            Update();
+            if (double dif = 5 - scale_ratio; dif > 0)
+            {
+                scale_center.x += nearest_integer<int>((event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio/4);
+                scale_center.y += nearest_integer<int>((event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio/4);
+                scale_ratio += dif >= 0.1 ? 0.1 : dif;
+            }
+            else
+            {
+                scale_ratio += dif;
+                return;
+            }
         }
         else
-            scale_ratio += dif;
-    }
-    else
-    {
-        if (double dif = scale_ratio - std::min({GetSize().GetWidth() / double(image_source.width()), GetSize().GetHeight() / double(image_source.height()), 1.0});
-            dif > 0)
         {
-            scale_ratio -= dif >= 0.1 ? 0.1 : dif;
-            Refresh();
-            Update();
+            if (double dif = scale_ratio - std::min({GetSize().GetWidth() / double(image_source.width()), GetSize().GetHeight() / double(image_source.height()), 1.0});
+                dif > 0)
+            {
+                //scale_center.x -= nearest_integer<int>((event.GetX() - GetSize().GetWidth()/2)/scale_ratio/4);
+                //scale_center.y -= nearest_integer<int>((event.GetY() - GetSize().GetHeight()/2)/scale_ratio/4);
+                scale_ratio -= dif >= 0.1 ? 0.1 : dif;
+            }
+            else
+            {
+                scale_ratio -= dif;
+                return;
+            }
         }
-        else
-            scale_ratio -= dif;
+        Refresh();
+        Update();
     }
 }
 
@@ -228,7 +281,7 @@ void ImageWindow::Load(const wxString& path)
     else if (path.EndsWith(".bmp"))
         gil::read_and_convert_image(path.c_str().AsChar(), image_source, gil::bmp_tag());
     scale_ratio = std::min({GetSize().GetWidth() / double(image_source.width()), GetSize().GetHeight() / double(image_source.height()), 1.0});
-    scale_center = wxPoint{image_source.width()/2, image_source.height()/2};
+    scale_center = wxPoint{nearest_integer<int>(image_source.width()/2), nearest_integer<int>(image_source.height()/2)};
     marked_image = wxNullImage;
     image.recreate(image_source.dimensions());
     auto src_view = gil::view(image_source), view = gil::view(image);

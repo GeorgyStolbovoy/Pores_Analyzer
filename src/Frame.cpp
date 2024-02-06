@@ -20,6 +20,10 @@ void Frame::OnLoad(wxCommandEvent& event)
     if (dlg.ShowModal() == wxID_OK)
     {
         m_image->Load(dlg.GetPath());
+        if (m_toolBar->FindById(wxID_FIND)->IsToggled())
+            m_image->SetCursor(wxCursor{wxCURSOR_MAGNIFIER});
+        else if (m_toolBar->FindById(wxID_SELECTALL)->IsToggled())
+            m_image->SetCursor(wxCursor{wxCURSOR_CROSS});
         m_measure->NewMeasure(gil::view(m_image->image));
         m_curves->Enable(true);
         m_curves->path_histogram = std::nullopt;
@@ -36,11 +40,15 @@ void Frame::OnSave(wxCommandEvent& event)
 void Frame::OnToolbarScale(wxCommandEvent& event)
 {
     m_image->state = ImageWindow::State::SCALING;
+    if (!gil::view(m_image->image).empty())
+        m_image->SetCursor(wxCursor{wxCURSOR_MAGNIFIER});
 }
 
 void Frame::OnToolbarSelect(wxCommandEvent& event)
 {
     m_image->state = ImageWindow::State::SELECTING;
+    if (!gil::view(m_image->image).empty())
+        m_image->SetCursor(wxCursor{wxCURSOR_CROSS});
 }
 
 void Frame::OnToolbarDelete(wxCommandEvent& event)

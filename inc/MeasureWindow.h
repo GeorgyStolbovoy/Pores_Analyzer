@@ -41,7 +41,7 @@ public:
 	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
 
 	pores_container m_pores;
-	std::set<uint32_t> m_deleted_pores;
+	std::set<uint32_t> m_deleted_pores, m_selected_pores;
 	std::vector<uint8_t> m_colors;
 
 	MeasureWindow(wxWindow *parent);

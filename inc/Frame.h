@@ -4,6 +4,7 @@
 #include "CorrectionWindow.h"
 #include "MeasureWindow.h"
 #include <wx/frame.h>
+#include <wx/toolbar.h>
 
 class Frame : public wxFrame
 {
@@ -11,6 +12,8 @@ public:
     ImageWindow* m_image;
 	CorrectionWindow* m_curves;
 	MeasureWindow* m_measure;
+
+	wxToolBar* m_toolBar;
 
     Frame();
 	void OnLoad(wxCommandEvent& event);

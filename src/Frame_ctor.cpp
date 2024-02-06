@@ -1,6 +1,5 @@
 #include "Frame.h"
 #include <wx/menu.h>
-#include <wx/toolbar.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
 #include <../art/filesave.xpm>
@@ -36,9 +35,9 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	m_menubar1->Append( m_menu1, wxT("Меню") );
 
-	this->SetMenuBar( m_menubar1 );
+	SetMenuBar( m_menubar1 );
 
-	wxToolBar* m_toolBar = this->CreateToolBar( wxTB_FLAT|wxTB_HORIZONTAL|wxTB_TEXT, wxID_ANY );
+	m_toolBar = CreateToolBar( wxTB_FLAT|wxTB_HORIZONTAL|wxTB_TEXT, wxID_ANY );
 	m_toolBar->SetBackgroundColour( wxColour( 128, 128, 128 ) );
 	wxToolBarToolBase* m_tool_save = m_toolBar->AddTool( wxID_SAVE, wxT("Сохранение"), wxBitmap{filesave_xpm}, wxNullBitmap, wxITEM_NORMAL);
 

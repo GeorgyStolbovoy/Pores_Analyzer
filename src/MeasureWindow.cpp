@@ -329,6 +329,7 @@ void MeasureWindow::update_image()
 
 void MeasureWindow::after_measure()
 {
+	m_selected_pores.clear();
 	m_deleted_pores.clear();
 	if (m_checkBox_background->IsChecked())
 		m_deleted_pores.insert(get_biggest_pore_id());
