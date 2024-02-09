@@ -74,7 +74,7 @@ private:
 	void Measure(locator_t loc);
 	void inspect_pore(const inspecting_pixel& insp_pixel);
 	uint32_t get_biggest_pore_id();
-	void update_image();
+	template <bool reset_selection> void update_image();
 	void after_measure();
 
 	wxDECLARE_EVENT_TABLE();

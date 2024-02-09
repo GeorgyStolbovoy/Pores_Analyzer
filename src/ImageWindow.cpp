@@ -16,7 +16,7 @@ wxBEGIN_EVENT_TABLE(ImageWindow, wxWindow)
     EVT_RIGHT_DOWN(ImageWindow::OnMouseRightDown)
     EVT_RIGHT_UP(ImageWindow::OnMouseRightUp)
     EVT_MOUSEWHEEL(ImageWindow::OnMouseWheel)
-    EVT_LEAVE_WINDOW(ImageWindow::OnLeave)
+    EVT_TIMER(wxID_ANY, ImageWindow::OnTimer)
 wxEND_EVENT_TABLE()
 
 ImageWindow::ImageWindow(wxWindow *parent, const wxSize& size) : wxWindow(parent, wxID_ANY, wxDefaultPosition, size, wxFULL_REPAINT_ON_RESIZE)
@@ -68,12 +68,21 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
                 yy = h - scaled_height;
                 scale_center.y = nearest_integer<int>(h - scaled_height/2.0f);
             }
-            wxImage img = marked_image.GetSubImage({xx, yy, nearest_integer<int>(scaled_width), nearest_integer<int>(scaled_height)});
             double final_ratio = std::min(win_w/double(scaled_width), win_h/double(scaled_height));
             std::ptrdiff_t new_w = nearest_integer<int>(final_ratio*scaled_width), new_h = nearest_integer<int>(final_ratio*scaled_height);
             wxCoord ofs_x = nearest_integer<wxCoord>(win_w/2.0f - new_w/2.0f), ofs_y = nearest_integer<wxCoord>(win_h/2.0f - new_h/2.0f);
+            
+            wxImage img = marked_image.GetSubImage({xx, yy, nearest_integer<int>(scaled_width), nearest_integer<int>(scaled_height)});
             img.Rescale(new_w, new_h);
             dc.DrawBitmap(wxBitmap{img}, ofs_x, ofs_y);
+
+            if (m_sel_session.has_value())
+            {
+                wxImage img_sel{w, h, m_sel_session.value().selected_pores, m_sel_session.value().alpha, true};
+                img_sel.Resize({nearest_integer<int>(scaled_width), nearest_integer<int>(scaled_height)}, {-xx, -yy});
+                img_sel.Rescale(new_w, new_h);
+                dc.DrawBitmap(wxBitmap{img_sel}, ofs_x, ofs_y);
+            }
         };
 
         if (!marked_image.IsOk())
@@ -200,11 +209,59 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     }
     else if (state == State::SELECTING)
     {
+        using coord_t = MeasureWindow::pores_container::value_type::second_type;
+
         MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+        if (!event.ControlDown() && !event.AltDown())
+        {
+            m_sel_session = std::nullopt;
+            measure->m_selected_pores.clear();
+        }
         if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(
-                MeasureWindow::pores_container::value_type::second_type{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)}
-            ); find_it != measure->m_pores.get<MeasureWindow::tag_hashset>().end() && !measure->m_deleted_pores.contains(find_it->first))
-            measure->m_selected_pores.insert(find_it->first);
+                coord_t{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio) - 1, nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio) - 1}
+            ), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
+        {
+            if (!event.AltDown())
+            {
+                if (!measure->m_selected_pores.insert(find_it->first).second) [[unlikely]]
+                    return;
+                std::ptrdiff_t w = image.width(), h = image.height();
+                std::size_t size = w*h;
+                if (!m_sel_session.has_value())
+                    m_sel_session.emplace(this, size);
+                auto pore_it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(find_it->first), pore_end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+                uint32_t i = pore_it->first;
+                SelectionSession& selses = m_sel_session.value();
+                do
+                {
+                    std::size_t ind = pore_it->second.first + pore_it->second.second * w;
+                    if (auto tmp_it = decltype(find_it){};
+                        (pore_it->second.first - 1 < 0 ||
+                            (pore_it->second.second - 1 < 0 || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second - 1})) != end_it && tmp_it->first == i) &&
+                            (pore_it->second.second + 1 >= h || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second + 1})) != end_it && tmp_it->first == i)) &&
+                        (pore_it->second.first + 1 >= w ||
+                            (pore_it->second.second - 1 < 0 || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second - 1})) != end_it && tmp_it->first == i) &&
+                            (pore_it->second.second + 1 >= h || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second + 1})) != end_it && tmp_it->first == i)))
+                    {
+                        selses.alpha[ind] = 255;
+                    }
+                    else
+                    {
+                        selses.alpha[ind] = 128;
+                    }
+                } while (++pore_it != pore_end && pore_it->first == i);
+                Refresh();
+                Update();
+            }
+            else if (m_sel_session.has_value())
+            {
+                m_sel_session.value().remove_from_selection(measure, find_it->first, image.width());
+                if (measure->m_selected_pores.empty()) [[unlikely]]
+                    m_sel_session = std::nullopt;
+                Refresh();
+                Update();
+            }
+        }
     }
 }
 
@@ -217,14 +274,22 @@ void ImageWindow::OnMouseLeftUp(wxMouseEvent& event)
 void ImageWindow::OnMouseRightDown(wxMouseEvent& event)
 {
     CaptureMouse();
-    mouse_last_pos.x = event.GetX();
-    mouse_last_pos.y = event.GetY();
 }
 
 void ImageWindow::OnMouseRightUp(wxMouseEvent& event)
 {
     if (HasCapture())
+    {
         ReleaseMouse();
+        if (state == State::SCALING)
+        {
+            ;
+        }
+        else if (state == State::SELECTING)
+        {
+            ;
+        }
+    }
 }
 
 void ImageWindow::OnMouseWheel(wxMouseEvent& event)
@@ -265,9 +330,18 @@ void ImageWindow::OnMouseWheel(wxMouseEvent& event)
     }
 }
 
-void ImageWindow::OnLeave(wxMouseEvent& event)
+void ImageWindow::OnTimer(wxTimerEvent& event)
 {
-    ;
+    SelectionSession& session = m_sel_session.value();
+    float color_k = std::sinf(session.rad += float(M_PI/10));
+    for (std::size_t i = 0; i < session.bufsize; ++i)
+        if (session.alpha[i] > 0) [[unlikely]]
+        {
+            session.selected_pores[3*i] = 127*(1 + color_k);
+            session.selected_pores[3*i+1] = 127*(1 - color_k);
+        }
+    Refresh();
+    Update();
 }
 
 void ImageWindow::Load(const wxString& path)
@@ -283,6 +357,7 @@ void ImageWindow::Load(const wxString& path)
     scale_ratio = std::min({GetSize().GetWidth() / double(image_source.width()), GetSize().GetHeight() / double(image_source.height()), 1.0});
     scale_center = wxPoint{nearest_integer<int>(image_source.width()/2), nearest_integer<int>(image_source.height()/2)};
     marked_image = wxNullImage;
+    m_sel_session = std::nullopt;
     image.recreate(image_source.dimensions());
     auto src_view = gil::view(image_source), view = gil::view(image);
     for (auto src_it = src_view.begin(), src_end = src_view.end(), dst_it = view.begin(), dst_end = view.end(); src_it != src_end; ++src_it, ++dst_it)
@@ -297,6 +372,23 @@ void ImageWindow::ApplyHistogram(Histogram_t& hist)
         *dst_it = histogram[*src_it];
     static_cast<Frame*>(GetParent())->m_measure->NewMeasure(view);
     marked_image = wxNullImage;
+    m_sel_session = std::nullopt;
     Refresh();
     Update();
+}
+
+ImageWindow::SelectionSession::SelectionSession(ImageWindow* owner, std::size_t bufsize) : bufsize(bufsize), selected_pores(new unsigned char[bufsize*3]), alpha(new unsigned char[bufsize]{})
+{
+    SetOwner(owner);
+    Start(100);
+}
+
+void ImageWindow::SelectionSession::remove_from_selection(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width)
+{
+    measure->m_selected_pores.erase(pore_id);
+    auto pore_it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(pore_id), pore_end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+    do
+    {
+        alpha[pore_it->second.first + pore_it->second.second * row_width] = 0;
+    } while (++pore_it != pore_end && pore_it->first == pore_id);
 }

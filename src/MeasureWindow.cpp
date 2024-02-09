@@ -23,7 +23,7 @@ wxEND_EVENT_TABLE()
 
 void MeasureWindow::OnSwitchColor(wxCommandEvent& event)
 {
-	update_image();
+	update_image<false>();
 }
 
 void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
@@ -34,14 +34,16 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 	else
 		if (m_deleted_pores.erase(id_to_delete) == 0)
 			return;
-	update_image();
+	if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
+		static_cast<Frame*>(GetParent())->m_image->m_sel_session.value().remove_from_selection(this, id_to_delete, width);
+	update_image<false>();
 }
 
 void MeasureWindow::OnChangeColor(wxCommandEvent& event)
 {
 	for (uint8_t& channel: m_colors)
 		channel = uint8_t(m_random(m_rand_engine));
-	update_image();
+	update_image<false>();
 }
 
 void MeasureWindow::OnChangeDifference(wxScrollEvent& event)
@@ -49,13 +51,13 @@ void MeasureWindow::OnChangeDifference(wxScrollEvent& event)
 	if (auto view = gil::view(static_cast<Frame*>(GetParent())->m_image->image); !view.empty())
 	{
 		Measure(view.xy_at(0, 0));
-		update_image();
+		update_image<true>();
 	}
 }
 
 void MeasureWindow::OnChangeTransparency(wxScrollEvent& event)
 {
-	update_image();
+	update_image<false>();
 }
 
 void MeasureWindow::OnErosion(wxCommandEvent& event)
@@ -167,7 +169,7 @@ void MeasureWindow::OnErosion(wxCommandEvent& event)
 		{
 			self->m_pores = std::move(erosed_pores);
 			self->after_measure();
-			self->update_image();
+			self->update_image<true>();
 		}
 	} __(this);
 }
@@ -187,7 +189,7 @@ void MeasureWindow::OnDilation(wxCommandEvent& event)
 				m_pores.get<tag_multiset>().modify_key(m_pores.project<tag_multiset>(result.first), [&pore](uint32_t& id){id = pore.first;});
 		}
 		after_measure();
-		update_image();
+		update_image<true>();
 	};
 
 	for (auto it = m_pores.get<tag_multiset>().begin(), end = m_pores.get<tag_multiset>().end();;)
@@ -319,10 +321,13 @@ uint32_t MeasureWindow::get_biggest_pore_id()
 	return id_to_delete;
 }
 
+template <bool reset_selection>
 void MeasureWindow::update_image()
 {
 	ImageWindow* iw = static_cast<Frame*>(GetParent())->m_image;
 	iw->marked_image = wxNullImage;
+	if constexpr (reset_selection)
+		iw->m_sel_session = std::nullopt;
 	iw->Refresh();
 	iw->Update();
 }
