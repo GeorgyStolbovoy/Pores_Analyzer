@@ -19,8 +19,15 @@ struct ImageWindow : wxWindow
 		unsigned char *selected_pores, *alpha;
 		float rad = float(M_PI);
 		SelectionSession(ImageWindow* owner, std::size_t bufsize);
-		void remove_from_selection(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width);
+		void deselect(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width);
 		~SelectionSession() {delete[] selected_pores; delete[] alpha;}
+	};
+	struct RecoveringBackground
+	{
+		unsigned char *background, *alpha;
+		RecoveringBackground(std::size_t bufsize);
+		void recover(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width);
+		~RecoveringBackground() {delete[] background; delete[] alpha;}
 	};
 
 	Image_t image;
@@ -30,6 +37,7 @@ struct ImageWindow : wxWindow
 	double scale_ratio;
 	wxPoint scale_center, mouse_last_pos;
 	std::optional<SelectionSession> m_sel_session;
+	std::optional<RecoveringBackground> m_rec_background;
 
 	ImageWindow(wxWindow *parent, const wxSize& size);
 	void OnPaint(wxPaintEvent& event);

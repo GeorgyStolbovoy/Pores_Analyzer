@@ -6,6 +6,7 @@
 #include <boost/gil/extension/io/jpeg.hpp>
 #include <boost/gil/extension/io/tiff.hpp>
 #include <boost/gil/extension/io/bmp.hpp>
+#include <boost/scope_exit.hpp>
 
 wxBEGIN_EVENT_TABLE(ImageWindow, wxWindow)
     EVT_PAINT(ImageWindow::OnPaint)
@@ -83,11 +84,21 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
                 img_sel.Rescale(new_w, new_h);
                 dc.DrawBitmap(wxBitmap{img_sel}, ofs_x, ofs_y);
             }
+
+            if (m_rec_background.has_value())
+            {
+                wxImage img_rec{w, h, m_rec_background.value().background, m_rec_background.value().alpha, true};
+                img_rec.Resize({nearest_integer<int>(scaled_width), nearest_integer<int>(scaled_height)}, {-xx, -yy});
+                img_rec.Rescale(new_w, new_h);
+                dc.DrawBitmap(wxBitmap{img_rec}, ofs_x, ofs_y);
+            }
         };
 
         if (!marked_image.IsOk())
         {
 	        ptrdiff_t w = image.width(), h = image.height();
+            MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+            uint8_t transparency = nearest_integer<uint8_t>(255 * float(measure->m_slider_transparency->GetValue()) / 100);
             std::unique_ptr<unsigned char[]> bm_buf{new unsigned char[w*h*3]{}};
             wxMemoryDC mem_dc;
             auto fill = [=, buf = bm_buf.get(), &view, &mem_dc]()
@@ -100,21 +111,51 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
             auto finalize = [=, &mem_dc, &paint, buf = bm_buf.get()](unsigned char* alpha = nullptr)
             {
                 if (alpha)
+                {
+                    if (state == State::RECOVERING)
+                    {
+                        m_rec_background.emplace(w*h);
+                        for (uint32_t del_id : measure->m_deleted_pores)
+                        {
+	                        uint8_t* color = &measure->m_colors[3*(del_id-1)];
+	                        auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(del_id), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+                            do
+                            {
+                                std::ptrdiff_t mem_ofs = it->second.first + it->second.second * w;
+                                std::memcpy(buf + 3*mem_ofs, color, 3);
+                                alpha[mem_ofs] = 255 - transparency;
+                                m_rec_background.value().alpha[mem_ofs] = 0;
+                            } while (++it != end && it->first == del_id);
+                        }
+                    }
                     mem_dc.DrawBitmap(wxBitmap{wxImage{w, h, buf, alpha, true}}, 0, 0);
+                }
                 else
+                {
+                    if (state == State::RECOVERING)
+                    {
+                        m_rec_background.emplace(w*h);
+                        for (uint32_t del_id : measure->m_deleted_pores)
+                        {
+                            auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(del_id), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+                            do
+                            {
+                                m_rec_background.value().alpha[it->second.first + it->second.second * w] = 0;
+                            } while (++it != end && it->first == del_id);
+                        }
+                    }
                     mem_dc.SelectObjectAsSource(wxBitmap{wxImage{w, h, buf, true}});
+                }
                 marked_image = mem_dc.GetSelectedBitmap().ConvertToImage();
                 paint(w, h);
             };
 
-	        if (MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure; measure->m_checkBox_colorize->IsChecked())
+	        if (measure->m_checkBox_colorize->IsChecked())
 	        {
-	            if (uint8_t transparency = std::round(255 * float(measure->m_slider_transparency->GetValue()) / 100);
-	                transparency == 0 && measure->m_deleted_pores.empty() && image.width()*image.height() == measure->m_pores.size()) [[unlikely]]
+	            if (transparency == 0 && measure->m_deleted_pores.empty() && image.width()*image.height() == measure->m_pores.size()) [[unlikely]]
 	            {
 	                auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
-	                uint32_t i = it->first;
-	                for (;;)
+	                for (uint32_t i = it->first;; i = it->first)
 	                {
 	                    uint8_t* color = &measure->m_colors[3*(i-1)];
 	                    do
@@ -126,7 +167,6 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
 	                            return;
                             }
 	                    } while (it->first == i);
-	                    i = it->first;
 	                }
 	            }
 	            else [[likely]] if (transparency < 255) 
@@ -134,8 +174,7 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
 	                fill();
                     std::unique_ptr<unsigned char[]> alpha{new unsigned char[w*h]{}};
 	                auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
-	                uint32_t i = it->first;
-	                for (;;)
+	                for (uint32_t i = it->first;; i = it->first)
 	                {
 	                    if (!measure->m_deleted_pores.contains(i))
 	                    {
@@ -158,7 +197,6 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
                             finalize(alpha.get());
 	                        return;
                         }
-	                    i = it->first;
 	                }
 	            }
 	            else
@@ -188,7 +226,7 @@ void ImageWindow::OnSize(wxSizeEvent& event)
 
 void ImageWindow::OnMouseMove(wxMouseEvent& event)
 {
-    if (state == State::SCALING && HasCapture())
+    if (state == State::SCALING && event.LeftIsDown())
     {
         scale_center.x += nearest_integer<int>((mouse_last_pos.x - event.GetX())/scale_ratio);
         scale_center.y += nearest_integer<int>((mouse_last_pos.y - event.GetY())/scale_ratio);
@@ -202,24 +240,38 @@ void ImageWindow::OnMouseMove(wxMouseEvent& event)
 void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
 {
     CaptureMouse();
-    if (state == State::SCALING)
+    switch (state)
+    {
+    case State::SCALING:
     {
         mouse_last_pos.x = event.GetX();
         mouse_last_pos.y = event.GetY();
+        break;
     }
-    else if (state == State::SELECTING)
+    case State::SELECTING:
     {
         using coord_t = MeasureWindow::pores_container::value_type::second_type;
 
+        bool do_refresh = false;
+        BOOST_SCOPE_EXIT_ALL(this, &do_refresh)
+        {
+	        if (do_refresh)
+	        {
+                Refresh();
+                Update();
+	        }
+        };
+
         MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
-        if (!event.ControlDown() && !event.AltDown())
+        if (!event.ControlDown() && !event.AltDown() && m_sel_session.has_value())
         {
             m_sel_session = std::nullopt;
             measure->m_selected_pores.clear();
+            do_refresh = true;
         }
         if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(
-                coord_t{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio) - 1, nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio) - 1}
-            ), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
+            coord_t{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio) - 1, nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio) - 1}
+        ), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
         {
             if (!event.AltDown())
             {
@@ -235,7 +287,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
                 do
                 {
                     std::size_t ind = pore_it->second.first + pore_it->second.second * w;
-                    if (auto tmp_it = decltype(find_it){};
+                    if (MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator tmp_it;
                         (pore_it->second.first - 1 < 0 ||
                             (pore_it->second.second - 1 < 0 || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second - 1})) != end_it && tmp_it->first == i) &&
                             (pore_it->second.second + 1 >= h || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second + 1})) != end_it && tmp_it->first == i)) &&
@@ -250,18 +302,51 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
                         selses.alpha[ind] = 128;
                     }
                 } while (++pore_it != pore_end && pore_it->first == i);
-                Refresh();
-                Update();
+                do_refresh = true;
             }
-            else if (m_sel_session.has_value())
+            else if (measure->m_selected_pores.contains(find_it->first))
             {
-                m_sel_session.value().remove_from_selection(measure, find_it->first, image.width());
+                m_sel_session.value().deselect(measure, find_it->first, image.width());
                 if (measure->m_selected_pores.empty()) [[unlikely]]
                     m_sel_session = std::nullopt;
-                Refresh();
-                Update();
+                do_refresh = true;
             }
         }
+        break;
+    }
+    case State::DELETING:
+	{
+        MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::pores_container::value_type::second_type{
+            	nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)
+        }), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
+        {
+            measure->m_deleted_pores.insert(find_it->first);
+            marked_image = wxNullImage;
+            if (measure->m_selected_pores.contains(find_it->first))
+            {
+	            m_sel_session.value().deselect(measure, find_it->first, image.width());
+	            if (measure->m_selected_pores.empty()) [[unlikely]]
+	                m_sel_session = std::nullopt;
+            }
+            Refresh();
+            Update();
+        }
+        break;
+    }
+    case State::RECOVERING:
+    {
+        MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::pores_container::value_type::second_type{
+            nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)
+        }), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && measure->m_deleted_pores.contains(find_it->first))
+        {
+            m_rec_background.value().recover(measure, find_it->first, image.width());
+            Refresh();
+            Update();
+        }
+	    break;
+    }
     }
 }
 
@@ -362,6 +447,13 @@ void ImageWindow::Load(const wxString& path)
     auto src_view = gil::view(image_source), view = gil::view(image);
     for (auto src_it = src_view.begin(), src_end = src_view.end(), dst_it = view.begin(), dst_end = view.end(); src_it != src_end; ++src_it, ++dst_it)
         *dst_it = histogram[*src_it];
+    switch (state)
+    {
+    case State::SCALING: SetCursor(wxCursor{wxCURSOR_MAGNIFIER}); break;
+    case State::SELECTING: SetCursor(wxCursor{wxCURSOR_CROSS}); break;
+    case State::DELETING: SetCursor(wxCursor{wxCURSOR_BULLSEYE}); break;
+    case State::RECOVERING: SetCursor(wxCursor{wxCURSOR_CHAR}); break;
+    }
 }
 
 void ImageWindow::ApplyHistogram(Histogram_t& hist)
@@ -383,12 +475,33 @@ ImageWindow::SelectionSession::SelectionSession(ImageWindow* owner, std::size_t 
     Start(100);
 }
 
-void ImageWindow::SelectionSession::remove_from_selection(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width)
+void ImageWindow::SelectionSession::deselect(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width)
 {
     measure->m_selected_pores.erase(pore_id);
     auto pore_it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(pore_id), pore_end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
     do
     {
         alpha[pore_it->second.first + pore_it->second.second * row_width] = 0;
+    } while (++pore_it != pore_end && pore_it->first == pore_id);
+}
+
+ImageWindow::RecoveringBackground::RecoveringBackground(std::size_t bufsize) : background(new unsigned char[bufsize*3]{}), alpha(new unsigned char[bufsize])
+{
+    for (std::size_t i = 0; i < 3*bufsize; i += 3)
+    {
+        background[i] = 10;
+        background[i+1] = 10;
+        background[i+2] = 10;
+    }
+    std::memset(alpha, 223, bufsize);
+}
+
+void ImageWindow::RecoveringBackground::recover(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width)
+{
+    measure->m_deleted_pores.erase(pore_id);
+    auto pore_it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(pore_id), pore_end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+    do
+    {
+        alpha[pore_it->second.first + pore_it->second.second * row_width] = 223;
     } while (++pore_it != pore_end && pore_it->first == pore_id);
 }

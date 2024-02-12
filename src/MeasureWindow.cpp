@@ -30,12 +30,13 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 {
 	uint32_t id_to_delete = get_biggest_pore_id();
 	if (event.IsChecked())
+	{
 		m_deleted_pores.insert(id_to_delete);
-	else
-		if (m_deleted_pores.erase(id_to_delete) == 0)
-			return;
-	if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
-		static_cast<Frame*>(GetParent())->m_image->m_sel_session.value().remove_from_selection(this, id_to_delete, width);
+		if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
+			static_cast<Frame*>(GetParent())->m_image->m_sel_session.value().deselect(this, id_to_delete, width);
+	}
+	else if (m_deleted_pores.erase(id_to_delete) == 0)
+		return;
 	update_image<false>();
 }
 
