@@ -39,7 +39,7 @@ struct ImageWindow : wxWindow
 	std::optional<SelectionSession> m_sel_session;
 	std::optional<RecoveringBackground> m_rec_background;
 
-	ImageWindow(wxWindow *parent, const wxSize& size);
+	ImageWindow(wxWindow *parent);
 	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);
 	void OnMouseMove(wxMouseEvent& event);
@@ -52,9 +52,9 @@ struct ImageWindow : wxWindow
 	void Load(const wxString& path);
 	void ApplyHistogram(Histogram_t& hist);
 
+private:
 	wxDECLARE_EVENT_TABLE();
 
-private:
 	Image_t image_source;
 	wxBitmap DCbuffer;
 };

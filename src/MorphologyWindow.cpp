@@ -18,7 +18,7 @@ wxBEGIN_EVENT_TABLE(MorphologyWindow, wxWindow)
 wxEND_EVENT_TABLE()
 
 MorphologyWindow::MorphologyWindow(wxWindow *parent)
-	: wxWindow(parent, wxID_ANY, wxDefaultPosition, wxSize(-1, 128)), StructureHolder(INITIAL_STRUCTURE_OF(structure_t))
+	: wxWindow(parent, wxID_ANY, wxDefaultPosition, wxSize(200, 200)), StructureHolder(INITIAL_STRUCTURE_OF(structure_t))
 {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetBackgroundColour(*wxLIGHT_GREY);

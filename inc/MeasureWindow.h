@@ -5,6 +5,7 @@
 #include <wx/slider.h>
 #include <wx/checkbox.h>
 #include <set>
+#include <unordered_set>
 #include <random>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -42,7 +43,9 @@ public:
 
 	pores_container m_pores;
 	std::set<uint32_t> m_deleted_pores, m_selected_pores;
+	std::unordered_set<coord_t, boost::hash<coord_t>> m_boundary_pixels;
 	std::vector<uint8_t> m_colors;
+	uint32_t pores_count;
 
 	MeasureWindow(wxWindow *parent);
 	void NewMeasure(ImageWindow::Image_t::view_t view);
@@ -68,7 +71,6 @@ private:
     std::uniform_int_distribution<uint16_t> m_random{0, 255};
 	locator_t::cached_location_t cl_lt, cl_t, cl_rt, cl_r, cl_rb, cl_b, cl_lb, cl_l;
 	std::ptrdiff_t height, width;
-	uint32_t pores_count;
 	uint8_t diff;
 
 	void Measure(locator_t loc);

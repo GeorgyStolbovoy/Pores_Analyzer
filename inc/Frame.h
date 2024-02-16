@@ -3,6 +3,7 @@
 #include "ImageWindow.h"
 #include "CorrectionWindow.h"
 #include "MeasureWindow.h"
+#include "StatisticWindow.h"
 #include <wx/frame.h>
 #include <wx/toolbar.h>
 
@@ -12,6 +13,7 @@ public:
     ImageWindow* m_image;
 	CorrectionWindow* m_curves;
 	MeasureWindow* m_measure;
+	StatisticWindow* m_statistic;
 
 	wxToolBar* m_toolBar;
 

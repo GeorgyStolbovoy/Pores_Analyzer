@@ -11,13 +11,6 @@
 
 Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 {
-	wxSize frame_size{1000, 1200}, monitor_size = wxGetDisplaySize();
-	if (float k = (std::min)(frame_size.x / float(monitor_size.x), frame_size.y / float(monitor_size.y)); k > 0.9) [[unlikely]]
-	{
-		frame_size.x *= 0.9/k;
-		frame_size.y *= 0.9/k;
-	}
-
 	wxMenuBar* m_menubar1 = new wxMenuBar(0);
 	wxMenu* m_menu1 = new wxMenu();
 	wxMenuItem* m_menuItem1 = new wxMenuItem( m_menu1, wxID_OPEN, wxString(wxT("Загрузить изображение")));
@@ -61,21 +54,29 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	wxBoxSizer* bSizer_imageControl = new wxBoxSizer( wxVERTICAL );
 
-	m_image = new ImageWindow(this, wxSize{frame_size.x, int(frame_size.y*8/11.0f)});
+	m_image = new ImageWindow(this);
 	bSizer_imageControl->Add( m_image, 0, wxALL|wxEXPAND, 5 );
 
 	wxStaticLine* m_staticline1 = new wxStaticLine( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL );
 	bSizer_imageControl->Add( m_staticline1, 0, wxEXPAND | wxALL, 5 );
 
-	m_curves = new CorrectionWindow(this, wxSize{frame_size.x, int(frame_size.y*3/11.0f)});
+	m_curves = new CorrectionWindow(this, wxDefaultSize);
 	m_curves->Enable(false);
 	bSizer_imageControl->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
 	
 	bSizer_all->Add( bSizer_imageControl, 1, wxEXPAND, 5 );
 
+	wxBoxSizer* sizer_analysis = new wxBoxSizer( wxVERTICAL );
+
 	m_measure = new MeasureWindow(this);
 
-	bSizer_all->Add(m_measure, 0, wxALL|wxEXPAND, 5);
+	sizer_analysis->Add(m_measure, 0, wxALL|wxEXPAND, 5);
+
+	m_statistic = new StatisticWindow(this);
+
+	sizer_analysis->Add(m_statistic, 1, wxALL|wxEXPAND, 5);
+
+	bSizer_all->Add(sizer_analysis, 0, wxALL|wxEXPAND, 5);
 
 	SetSizer(bSizer_all);
 	bSizer_all->SetSizeHints(this);
@@ -84,4 +85,6 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	Layout();
 	Centre( wxBOTH );
 	SetIcon({wxT("wxICON_AAA")});
+
+	m_statistic->m_aui->InitPanesPositions(m_statistic->GetSize());
 }

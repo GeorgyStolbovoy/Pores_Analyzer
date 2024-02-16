@@ -1,6 +1,5 @@
 #include "MeasureWindow.h"
 #include "Frame.h"
-#include <unordered_set>
 
 wxWindowID
 	MeasureWindow::slider_algorithm_id = wxWindow::NewControlId(),
@@ -336,6 +335,7 @@ void MeasureWindow::update_image()
 void MeasureWindow::after_measure()
 {
 	m_selected_pores.clear();
+	m_boundary_pixels.clear();
 	m_deleted_pores.clear();
 	if (m_checkBox_background->IsChecked())
 		m_deleted_pores.insert(get_biggest_pore_id());
@@ -349,4 +349,22 @@ void MeasureWindow::after_measure()
 	}
 	else if (size > color_num)
 		m_colors.erase(m_colors.begin() + color_num, m_colors.end());
+
+	auto pore_it = m_pores.get<MeasureWindow::tag_multiset>().begin(), pore_end = m_pores.get<MeasureWindow::tag_multiset>().end();
+	uint32_t i = pore_it->first;
+	do
+	{
+		if (MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator end_it = m_pores.get<MeasureWindow::tag_hashset>().end(), tmp_it;
+			(pore_it->second.first - 1 >= 0 &&
+				((pore_it->second.second - 1 >= 0 && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second - 1})) == end_it || tmp_it->first != i)) ||
+				(pore_it->second.second + 1 < height && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second + 1})) == end_it || tmp_it->first != i)))) ||
+			(pore_it->second.first + 1 < width &&
+				((pore_it->second.second - 1 >= 0 && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second - 1})) == end_it || tmp_it->first == i)) ||
+				(pore_it->second.second + 1 < height && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second + 1})) == end_it || tmp_it->first == i)))))
+		{
+			m_boundary_pixels.insert(pore_it->second);
+		}
+	} while (++pore_it != pore_end && (pore_it->first == i || (i = pore_it->first) || true));
+
+	static_cast<Frame*>(GetParent())->m_statistic->CollectStatistic();
 }

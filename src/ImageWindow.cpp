@@ -20,7 +20,7 @@ wxBEGIN_EVENT_TABLE(ImageWindow, wxWindow)
     EVT_TIMER(wxID_ANY, ImageWindow::OnTimer)
 wxEND_EVENT_TABLE()
 
-ImageWindow::ImageWindow(wxWindow *parent, const wxSize& size) : wxWindow(parent, wxID_ANY, wxDefaultPosition, size, wxFULL_REPAINT_ON_RESIZE)
+ImageWindow::ImageWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE)
 {
     SetMinSize(wxSize{800, 600});
     SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -286,21 +286,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
                 SelectionSession& selses = m_sel_session.value();
                 do
                 {
-                    std::size_t ind = pore_it->second.first + pore_it->second.second * w;
-                    if (MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator tmp_it;
-                        (pore_it->second.first - 1 < 0 ||
-                            (pore_it->second.second - 1 < 0 || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second - 1})) != end_it && tmp_it->first == i) &&
-                            (pore_it->second.second + 1 >= h || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second + 1})) != end_it && tmp_it->first == i)) &&
-                        (pore_it->second.first + 1 >= w ||
-                            (pore_it->second.second - 1 < 0 || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second - 1})) != end_it && tmp_it->first == i) &&
-                            (pore_it->second.second + 1 >= h || (tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second + 1})) != end_it && tmp_it->first == i)))
-                    {
-                        selses.alpha[ind] = 255;
-                    }
-                    else
-                    {
-                        selses.alpha[ind] = 128;
-                    }
+                    selses.alpha[pore_it->second.first + pore_it->second.second * w] = 255;
                 } while (++pore_it != pore_end && pore_it->first == i);
                 do_refresh = true;
             }
