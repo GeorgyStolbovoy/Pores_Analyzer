@@ -1,11 +1,12 @@
 #include "MeasureWindow.h"
+#include "Frame.h"
 #include <wx/sizer.h>
 #include <wx/statbox.h>
 #include <wx/button.h>
 #include <wx/choice.h>
 #include <wx/spinctrl.h>
 
-MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
+MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN), parent_frame(static_cast<Frame*>(parent))
 {
 	wxBoxSizer* sizer_measure = new wxBoxSizer( wxHORIZONTAL );
 

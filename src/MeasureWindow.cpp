@@ -32,7 +32,7 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 	{
 		m_deleted_pores.insert(id_to_delete);
 		if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
-			static_cast<Frame*>(GetParent())->m_image->m_sel_session.value().deselect(this, id_to_delete, width);
+			parent_frame->m_image->m_sel_session.value().deselect(this, id_to_delete, width);
 	}
 	else if (m_deleted_pores.erase(id_to_delete) == 0)
 		return;
@@ -48,7 +48,7 @@ void MeasureWindow::OnChangeColor(wxCommandEvent& event)
 
 void MeasureWindow::OnChangeDifference(wxScrollEvent& event)
 {
-	if (auto view = gil::view(static_cast<Frame*>(GetParent())->m_image->image); !view.empty())
+	if (auto view = gil::view(parent_frame->m_image->image); !view.empty())
 	{
 		Measure(view.xy_at(0, 0));
 		update_image<true>();
@@ -324,7 +324,7 @@ uint32_t MeasureWindow::get_biggest_pore_id()
 template <bool reset_selection>
 void MeasureWindow::update_image()
 {
-	ImageWindow* iw = static_cast<Frame*>(GetParent())->m_image;
+	ImageWindow* iw = parent_frame->m_image;
 	iw->marked_image = wxNullImage;
 	if constexpr (reset_selection)
 		iw->m_sel_session = std::nullopt;
@@ -351,20 +351,25 @@ void MeasureWindow::after_measure()
 		m_colors.erase(m_colors.begin() + color_num, m_colors.end());
 
 	auto pore_it = m_pores.get<MeasureWindow::tag_multiset>().begin(), pore_end = m_pores.get<MeasureWindow::tag_multiset>().end();
-	uint32_t i = pore_it->first;
-	do
+	for (uint32_t i = pore_it->first;;)
 	{
 		if (MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator end_it = m_pores.get<MeasureWindow::tag_hashset>().end(), tmp_it;
-			(pore_it->second.first - 1 >= 0 &&
-				((pore_it->second.second - 1 >= 0 && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second - 1})) == end_it || tmp_it->first != i)) ||
-				(pore_it->second.second + 1 < height && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first - 1, pore_it->second.second + 1})) == end_it || tmp_it->first != i)))) ||
-			(pore_it->second.first + 1 < width &&
-				((pore_it->second.second - 1 >= 0 && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second - 1})) == end_it || tmp_it->first == i)) ||
-				(pore_it->second.second + 1 < height && ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first + 1, pore_it->second.second + 1})) == end_it || tmp_it->first == i)))))
-		{
+/*#define Y_COND_BASE(add1, add2) ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first add1, pore_it->second.second add2})) == end_it || tmp_it->first != i)
+#define Y_COND(cond, add1, add2) (pore_it->second.second cond && Y_COND_BASE(add1, add2))
+#define X_COND(cond) pore_it->second.first cond
+			X_COND(-1 >= 0)	   && (Y_COND(-1 >= 0, -1, -1) || Y_COND_BASE(-1,) || Y_COND(+1 < height, -1, +1)) ||
+								   Y_COND(-1 >= 0,   , -1)			  ||		  Y_COND(+1 < height,   , +1)  ||
+			X_COND(+1 < width) && (Y_COND(-1 >= 0, +1, -1) || Y_COND_BASE(+1,) || Y_COND(+1 < height, +1, +1))*/
+#define COND(dx, dy) (tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first dx, pore_it->second.second dy})) == end_it || tmp_it->first != i
+			pore_it->second.first == 0 || pore_it->second.first == width-1 || pore_it->second.second == 0 || pore_it->second.second == height-1 ||
+			COND(, +1) || COND(+1, +1) || COND(+1,) || COND(+1, -1) || COND(, -1) || COND(-1, -1) || COND(-1,) || COND(-1, +1)
+		) [[unlikely]]
 			m_boundary_pixels.insert(pore_it->second);
-		}
-	} while (++pore_it != pore_end && (pore_it->first == i || (i = pore_it->first) || true));
+		if (++pore_it == pore_end) [[unlikely]]
+			break;
+		if (pore_it->first != i) [[unlikely]]
+			i = pore_it->first;
+	}
 
-	static_cast<Frame*>(GetParent())->m_statistic->CollectStatistic();
+	parent_frame->m_statistic->CollectStatistic();
 }

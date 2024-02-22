@@ -16,10 +16,13 @@
 #include <boost/container_hash/hash.hpp>
 
 namespace mi = boost::multi_index;
+class Frame;
 
-class MeasureWindow : public wxWindow
+struct MeasureWindow : wxWindow
 {
 	using coord_t = std::pair<std::ptrdiff_t, std::ptrdiff_t>;
+
+private:
 	using pore_coord_t = std::pair<uint32_t, coord_t>;
 	using locator_t = ImageWindow::Image_t::view_t::xy_locator;
 	using inspecting_pixel = std::pair<locator_t, coord_t>;
@@ -45,6 +48,7 @@ public:
 	std::set<uint32_t> m_deleted_pores, m_selected_pores;
 	std::unordered_set<coord_t, boost::hash<coord_t>> m_boundary_pixels;
 	std::vector<uint8_t> m_colors;
+	std::ptrdiff_t height, width;
 	uint32_t pores_count;
 
 	MeasureWindow(wxWindow *parent);
@@ -70,7 +74,6 @@ private:
 	std::mt19937 m_rand_engine{std::random_device{}()};
     std::uniform_int_distribution<uint16_t> m_random{0, 255};
 	locator_t::cached_location_t cl_lt, cl_t, cl_rt, cl_r, cl_rb, cl_b, cl_lb, cl_l;
-	std::ptrdiff_t height, width;
 	uint8_t diff;
 
 	void Measure(locator_t loc);
@@ -78,6 +81,9 @@ private:
 	uint32_t get_biggest_pore_id();
 	template <bool reset_selection> void update_image();
 	void after_measure();
+
+private:
+	Frame* parent_frame;
 
 	wxDECLARE_EVENT_TABLE();
 };

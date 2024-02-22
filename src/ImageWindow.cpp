@@ -20,7 +20,7 @@ wxBEGIN_EVENT_TABLE(ImageWindow, wxWindow)
     EVT_TIMER(wxID_ANY, ImageWindow::OnTimer)
 wxEND_EVENT_TABLE()
 
-ImageWindow::ImageWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE)
+ImageWindow::ImageWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE), parent_frame(static_cast<Frame*>(parent))
 {
     SetMinSize(wxSize{800, 600});
     SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -97,7 +97,7 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
         if (!marked_image.IsOk())
         {
 	        ptrdiff_t w = image.width(), h = image.height();
-            MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+            MeasureWindow* measure = parent_frame->m_measure;
             uint8_t transparency = nearest_integer<uint8_t>(255 * float(measure->m_slider_transparency->GetValue()) / 100);
             std::unique_ptr<unsigned char[]> bm_buf{new unsigned char[w*h*3]{}};
             wxMemoryDC mem_dc;
@@ -250,8 +250,6 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     }
     case State::SELECTING:
     {
-        using coord_t = MeasureWindow::pores_container::value_type::second_type;
-
         bool do_refresh = false;
         BOOST_SCOPE_EXIT_ALL(this, &do_refresh)
         {
@@ -262,7 +260,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
 	        }
         };
 
-        MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
+        MeasureWindow* measure = parent_frame->m_measure;
         if (!event.ControlDown() && !event.AltDown() && m_sel_session.has_value())
         {
             m_sel_session = std::nullopt;
@@ -270,7 +268,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
             do_refresh = true;
         }
         if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(
-            coord_t{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio) - 1, nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio) - 1}
+            MeasureWindow::coord_t{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio) - 1, nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio) - 1}
         ), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
         {
             if (!event.AltDown())
@@ -302,8 +300,8 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     }
     case State::DELETING:
 	{
-        MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
-        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::pores_container::value_type::second_type{
+        MeasureWindow* measure = parent_frame->m_measure;
+        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{
             	nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)
         }), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
         {
@@ -322,8 +320,8 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     }
     case State::RECOVERING:
     {
-        MeasureWindow* measure = static_cast<Frame*>(GetParent())->m_measure;
-        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::pores_container::value_type::second_type{
+        MeasureWindow* measure = parent_frame->m_measure;
+        if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{
             nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)
         }), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && measure->m_deleted_pores.contains(find_it->first))
         {
@@ -448,7 +446,7 @@ void ImageWindow::ApplyHistogram(Histogram_t& hist)
     auto src_view = gil::view(image_source), view = gil::view(image);
     for (auto src_it = src_view.begin(), src_end = src_view.end(), dst_it = view.begin(), dst_end = view.end(); src_it != src_end; ++src_it, ++dst_it)
         *dst_it = histogram[*src_it];
-    static_cast<Frame*>(GetParent())->m_measure->NewMeasure(view);
+    parent_frame->m_measure->NewMeasure(view);
     marked_image = wxNullImage;
     m_sel_session = std::nullopt;
     Refresh();

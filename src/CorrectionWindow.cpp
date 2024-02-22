@@ -25,7 +25,8 @@ CorrectionWindow::CorrectionWindow(wxWindow *parent, const wxSize& size) :
         {{0.0, 0.0}, false, true},
         {{double(saved_width)/2, double(saved_height)/2}, false, false},
         {{double(saved_width), double(saved_height)}, false, true}
-    })
+    }),
+    parent_frame(static_cast<Frame*>(parent))
 {
     SetMinSize(wxSize{300, 300});
     SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -169,7 +170,7 @@ void CorrectionWindow::UpdateImage()
                 histogram[i] = std::round(255*curve_it->CalcY(x)/height);
         }
     }
-    static_cast<Frame*>(GetParent())->m_image->ApplyHistogram(histogram);
+    parent_frame->m_image->ApplyHistogram(histogram);
 }
 
 void CorrectionWindow::OnPaint(wxPaintEvent& event)
@@ -184,7 +185,7 @@ void CorrectionWindow::OnPaint(wxPaintEvent& event)
     gc->SetTransform(gc->CreateMatrix(1 - 13/double(width), 0, 0, 13/double(height) - 1, 6.5, height - 6.5));
     
     // Ãטסעמדנאללא
-    if (auto view = gil::view(static_cast<Frame*>(GetParent())->m_image->image); !view.empty())
+    if (auto view = gil::view(parent_frame->m_image->image); !view.empty())
     {
         if (!path_histogram.has_value()) [[unlikely]]
         {

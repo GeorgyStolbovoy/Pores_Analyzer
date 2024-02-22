@@ -8,6 +8,8 @@
 #include <variant>
 #include <thread>
 
+class Frame;
+
 class CorrectionWindow : public wxWindow
 {
 	using OptionalPath = std::optional<wxGraphicsPath>;
@@ -91,6 +93,9 @@ public:
 	void OnMouseLeftDown(wxMouseEvent& event);
 	void OnMouseLeftUp(wxMouseEvent& event);
 	void OnCaptureLost(wxMouseCaptureLostEvent& event) {captured = std::monostate{};}
+
+private:
+	Frame* parent_frame;
 
 	wxDECLARE_EVENT_TABLE();
 };

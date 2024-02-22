@@ -7,7 +7,8 @@
 #include <boost/gil.hpp>
 
 namespace gil = boost::gil;
-class MeasureWindow;
+class Frame;
+struct MeasureWindow;
 
 struct ImageWindow : wxWindow
 {
@@ -53,8 +54,9 @@ struct ImageWindow : wxWindow
 	void ApplyHistogram(Histogram_t& hist);
 
 private:
-	wxDECLARE_EVENT_TABLE();
-
+	Frame* parent_frame;
 	Image_t image_source;
 	wxBitmap DCbuffer;
+
+	wxDECLARE_EVENT_TABLE();
 };
