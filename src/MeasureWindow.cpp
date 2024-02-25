@@ -32,10 +32,21 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 	{
 		m_deleted_pores.insert(id_to_delete);
 		if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
-			parent_frame->m_image->m_sel_session.value().deselect(this, id_to_delete, width);
+		{
+			parent_frame->m_image->m_sel_session.value().deselect(this, id_to_delete);
+			parent_frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
+			if (m_selected_pores.empty())
+				parent_frame->m_image->m_sel_session = std::nullopt;
+		}
+		parent_frame->m_statistic->pores_statistic_list->on_pore_deleted(id_to_delete);
 	}
-	else if (m_deleted_pores.erase(id_to_delete) == 0)
-		return;
+	else
+	{
+		if (m_deleted_pores.erase(id_to_delete) > 0)
+			parent_frame->m_statistic->pores_statistic_list->on_pore_recovered(id_to_delete);
+		else
+			return;
+	}
 	update_image<false>();
 }
 

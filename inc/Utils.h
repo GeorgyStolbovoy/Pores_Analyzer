@@ -8,3 +8,12 @@ A nearest_integer(B x)
 	else
 		return x > 0 ? r + 1 : r - 1;
 }
+
+template <bool Cond, class A, class B>
+constexpr decltype(auto) conditional(A&& a, B&& b)
+{
+	if constexpr (Cond)
+		return std::forward<A>(a);
+	else
+		return std::forward<B>(b);
+}

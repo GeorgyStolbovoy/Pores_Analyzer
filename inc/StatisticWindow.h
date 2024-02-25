@@ -7,6 +7,7 @@
 #include <array>
 
 class Frame;
+class MeasureWindow;
 
 class StatisticWindow : public wxWindow
 {
@@ -28,18 +29,33 @@ class StatisticWindow : public wxWindow
 
 	struct PoresStatisticList : wxListCtrl
 	{
+#define PORES_PARAMS ID, SQUARE, PERIMETER, DIAMETER, CENTROID, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
+// Актуальные вычисляемые параметры
+#define PARAMS_NAMES (SQUARE)(PERIMETER)(DIAMETER)(CENTROID)(LENGTH_OY)(WIDTH_OX)(SHAPE)(ELONGATION)
 		using row_t = std::tuple<uint32_t, float, float, float, std::pair<float, float>, float, float, float, float, float, float, float, float>;
-		enum : uint8_t {ID, SQUARE, PERIMETER, DIAMETER, CENTROID, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION};
-		std::vector<row_t> container;
+		using container_t = std::vector<row_t>;
+		enum : uint8_t {PORES_PARAMS};
+		container_t container;
 		std::unordered_map<uint32_t, wxItemAttr> attributes;
+		bool dont_affect = false;
 
-		PoresStatisticList(wxWindow* parent);
+		PoresStatisticList(StatisticWindow* parent);
 		wxString OnGetItemText(long item, long column) const override;
 		wxItemAttr* OnGetItemAttr(long item) const override;
 		void OnSelection(wxListEvent& event);
 		void OnDeselection(wxListEvent& event);
+		void select_item(uint32_t pore_id);
+		void deselect_item(uint32_t pore_id);
+		void deselect_all();
+		void on_pore_deleted(uint32_t pore_id);
+		void on_pore_recovered(uint32_t pore_id);
+		void set_columns_width();
 
 	private:
+		StatisticWindow* parent_statwindow;
+
+		void recalculate_summary(MeasureWindow* measure, row_t& item_row, float pores_square);
+
 		wxDECLARE_EVENT_TABLE();
 	};
 
@@ -70,6 +86,8 @@ class StatisticWindow : public wxWindow
 	wxDECLARE_EVENT_TABLE();
 
 public:
+	using pores_statistic_container = PoresStatisticList::container_t;
+
 	Aui* m_aui;
 	CommonStatisticList* common_statistic_list;
 	PoresStatisticList* pores_statistic_list;

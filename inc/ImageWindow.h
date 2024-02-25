@@ -19,15 +19,18 @@ struct ImageWindow : wxWindow
 		std::size_t bufsize;
 		unsigned char *selected_pores, *alpha;
 		float rad = float(M_PI);
-		SelectionSession(ImageWindow* owner, std::size_t bufsize);
-		void deselect(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width);
+
+		SelectionSession(ImageWindow* owner);
+		SelectionSession(SelectionSession& other) = delete;
+		void select(MeasureWindow* measure, uint32_t pore_id);
+		void deselect(MeasureWindow* measure, uint32_t pore_id);
 		~SelectionSession() {delete[] selected_pores; delete[] alpha;}
 	};
 	struct RecoveringBackground
 	{
 		unsigned char *background, *alpha;
 		RecoveringBackground(std::size_t bufsize);
-		void recover(MeasureWindow* measure, uint32_t pore_id, std::ptrdiff_t row_width);
+		void recover(MeasureWindow* measure, uint32_t pore_id);
 		~RecoveringBackground() {delete[] background; delete[] alpha;}
 	};
 
@@ -49,6 +52,7 @@ struct ImageWindow : wxWindow
 	void OnMouseRightDown(wxMouseEvent& event);
 	void OnMouseRightUp(wxMouseEvent& event);
 	void OnMouseWheel(wxMouseEvent& event);
+	void OnCaptureLost(wxMouseCaptureLostEvent& event) {}
 	void OnTimer(wxTimerEvent& event);
 	void Load(const wxString& path);
 	void ApplyHistogram(Histogram_t& hist);
