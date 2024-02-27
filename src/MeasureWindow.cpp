@@ -30,15 +30,19 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 	uint32_t id_to_delete = get_biggest_pore_id();
 	if (event.IsChecked())
 	{
-		m_deleted_pores.insert(id_to_delete);
-		if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
+		if (m_deleted_pores.insert(id_to_delete).second)
 		{
-			parent_frame->m_image->m_sel_session.value().deselect(this, id_to_delete);
-			parent_frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
-			if (m_selected_pores.empty())
-				parent_frame->m_image->m_sel_session = std::nullopt;
+			if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
+			{
+				parent_frame->m_image->m_sel_session.value().deselect(this, id_to_delete);
+				parent_frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
+				if (m_selected_pores.empty())
+					parent_frame->m_image->m_sel_session = std::nullopt;
+			}
+			parent_frame->m_statistic->pores_statistic_list->on_pore_deleted(id_to_delete);
 		}
-		parent_frame->m_statistic->pores_statistic_list->on_pore_deleted(id_to_delete);
+		else
+			return;
 	}
 	else
 	{
@@ -365,16 +369,9 @@ void MeasureWindow::after_measure()
 	for (uint32_t i = pore_it->first;;)
 	{
 		if (MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator end_it = m_pores.get<MeasureWindow::tag_hashset>().end(), tmp_it;
-/*#define Y_COND_BASE(add1, add2) ((tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first add1, pore_it->second.second add2})) == end_it || tmp_it->first != i)
-#define Y_COND(cond, add1, add2) (pore_it->second.second cond && Y_COND_BASE(add1, add2))
-#define X_COND(cond) pore_it->second.first cond
-			X_COND(-1 >= 0)	   && (Y_COND(-1 >= 0, -1, -1) || Y_COND_BASE(-1,) || Y_COND(+1 < height, -1, +1)) ||
-								   Y_COND(-1 >= 0,   , -1)			  ||		  Y_COND(+1 < height,   , +1)  ||
-			X_COND(+1 < width) && (Y_COND(-1 >= 0, +1, -1) || Y_COND_BASE(+1,) || Y_COND(+1 < height, +1, +1))*/
-#define COND(dx, dy) (tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first dx, pore_it->second.second dy})) == end_it || tmp_it->first != i
 			pore_it->second.first == 0 || pore_it->second.first == width-1 || pore_it->second.second == 0 || pore_it->second.second == height-1 ||
-			COND(, +1) || COND(+1, +1) || COND(+1,) || COND(+1, -1) || COND(, -1) || COND(-1, -1) || COND(-1,) || COND(-1, +1)
-		) [[unlikely]]
+#define COND(dx, dy) (tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first dx, pore_it->second.second dy})) == end_it || tmp_it->first != i
+			COND(, +1) || COND(+1, +1) || COND(+1,) || COND(+1, -1) || COND(, -1) || COND(-1, -1) || COND(-1,) || COND(-1, +1)) [[unlikely]]
 			m_boundary_pixels.insert(pore_it->second);
 		if (++pore_it == pore_end) [[unlikely]]
 			break;

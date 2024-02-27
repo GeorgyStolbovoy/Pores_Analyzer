@@ -7,7 +7,7 @@
 #include <array>
 
 class Frame;
-class MeasureWindow;
+struct MeasureWindow;
 
 class StatisticWindow : public wxWindow
 {
@@ -29,10 +29,8 @@ class StatisticWindow : public wxWindow
 
 	struct PoresStatisticList : wxListCtrl
 	{
-#define PORES_PARAMS ID, SQUARE, PERIMETER, DIAMETER, CENTROID, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
-// Актуальные вычисляемые параметры
-#define PARAMS_NAMES (SQUARE)(PERIMETER)(DIAMETER)(CENTROID)(LENGTH_OY)(WIDTH_OX)(SHAPE)(ELONGATION)
-		using row_t = std::tuple<uint32_t, float, float, float, std::pair<float, float>, float, float, float, float, float, float, float, float>;
+#define PORES_PARAMS ID, SQUARE, PERIMETER, DIAMETER, CENTROID_X, CENTROID_Y, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
+		using row_t = std::tuple<uint32_t, float, float, float, float, float, float, float, float, float, float, float, float, float>;
 		using container_t = std::vector<row_t>;
 		enum : uint8_t {PORES_PARAMS};
 		container_t container;
@@ -44,6 +42,7 @@ class StatisticWindow : public wxWindow
 		wxItemAttr* OnGetItemAttr(long item) const override;
 		void OnSelection(wxListEvent& event);
 		void OnDeselection(wxListEvent& event);
+		void OnColumnClick(wxListEvent& event);
 		void select_item(uint32_t pore_id);
 		void deselect_item(uint32_t pore_id);
 		void deselect_all();
@@ -54,14 +53,17 @@ class StatisticWindow : public wxWindow
 	private:
 		StatisticWindow* parent_statwindow;
 
-		void recalculate_summary(MeasureWindow* measure, row_t& item_row, float pores_square);
+		void after_changes(MeasureWindow* measure, uint32_t pores_num, float pores_square);
 
 		wxDECLARE_EVENT_TABLE();
 	};
 
 	struct DistributionWindow : wxWindow
 	{
-		DistributionWindow(wxWindow* parent);
+		StatisticWindow* parent_statwindow;
+		int column_index = 0;
+
+		DistributionWindow(StatisticWindow* parent);
 		void OnPaint(wxPaintEvent& event);
 
 	private:

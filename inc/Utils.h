@@ -17,3 +17,19 @@ constexpr decltype(auto) conditional(A&& a, B&& b)
 	else
 		return std::forward<B>(b);
 }
+
+struct get_result
+{
+};
+
+template <class R, class Tuple, uint8_t index = 0>
+R get_tuple_element(const Tuple& tuple, int runtime_index)
+{
+	if constexpr (std::is_same_v<std::tuple_element_t<index, Tuple>, R>)
+		if (index == runtime_index)
+			return std::get<index>(tuple);
+	if constexpr (index + 1 < std::tuple_size_v<Tuple>)
+		return get_tuple_element<R, Tuple, index + 1>(tuple, runtime_index);
+	else
+		throw std::out_of_range{"runtime tuple index out of range"};
+}
