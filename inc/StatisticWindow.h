@@ -4,7 +4,9 @@
 #include <wx/listctrl.h>
 #include <wx/checkbox.h>
 #include <wx/aui/aui.h>
+#include <wx/graphics.h>
 #include <array>
+#include <boost/preprocessor/variadic/size.hpp>
 
 class Frame;
 struct MeasureWindow;
@@ -23,8 +25,11 @@ class StatisticWindow : public wxWindow
 		enum : uint8_t {PARAM_NAME, PARAM_VALUE};
 		std::array<row_t, 10> container;
 
-		CommonStatisticList(wxWindow* parent);
+		CommonStatisticList(StatisticWindow* parent);
 		wxString OnGetItemText(long item, long column) const override;
+
+	private:
+		StatisticWindow* parent_statwindow;
 	};
 
 	struct PoresStatisticList : wxListCtrl
@@ -53,7 +58,7 @@ class StatisticWindow : public wxWindow
 	private:
 		StatisticWindow* parent_statwindow;
 
-		void after_changes(MeasureWindow* measure, uint32_t pores_num, float pores_square);
+		void after_changes(MeasureWindow* measure, float pores_square);
 
 		wxDECLARE_EVENT_TABLE();
 	};
@@ -65,6 +70,7 @@ class StatisticWindow : public wxWindow
 
 		DistributionWindow(StatisticWindow* parent);
 		void OnPaint(wxPaintEvent& event);
+		void set_correct_font_size(wxGraphicsContext* gc, const wxString& text, int initial_size, double max_width, double max_height);
 
 	private:
 		wxDECLARE_EVENT_TABLE();
@@ -96,6 +102,8 @@ public:
 	DistributionWindow* distribution_window;
 	SettingsWindow* settings_window;
 	Frame* parent_frame;
+
+	uint32_t num_considered = 0;
 
 	StatisticWindow(wxWindow* parent);
 	~StatisticWindow() {delete m_aui;}

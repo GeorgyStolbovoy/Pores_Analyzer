@@ -2,13 +2,17 @@
 #include "Frame.h"
 
 wxWindowID
+	MeasureWindow::collapse_morphology_id = wxWindow::NewControlId(3),
+	MeasureWindow::collapse_color_id = MeasureWindow::collapse_morphology_id + 1,
+	MeasureWindow::collapse_filter_id = MeasureWindow::collapse_morphology_id + 2,
 	MeasureWindow::slider_algorithm_id = wxWindow::NewControlId(),
 	MeasureWindow::slider_transparency_id = wxWindow::NewControlId(),
 	MeasureWindow::button_color_id = wxWindow::NewControlId(),
 	MeasureWindow::button_erosion_id = wxWindow::NewControlId(),
 	MeasureWindow::button_dilation_id = wxWindow::NewControlId(),
-	MeasureWindow::checkbox_color_id = wxWindow::NewControlId(),
-	MeasureWindow::checkbox_background_id = wxWindow::NewControlId();
+	MeasureWindow::toggle_color_id = wxWindow::NewControlId(),
+	MeasureWindow::toggle_background_id = wxWindow::NewControlId(),
+	MeasureWindow::toggle_boundaries_id = wxWindow::NewControlId();
 
 wxBEGIN_EVENT_TABLE(MeasureWindow, wxWindow)
     EVT_COMMAND_SCROLL_CHANGED(MeasureWindow::slider_algorithm_id, MeasureWindow::OnChangeDifference)
@@ -16,8 +20,9 @@ wxBEGIN_EVENT_TABLE(MeasureWindow, wxWindow)
     EVT_BUTTON(MeasureWindow::button_color_id, MeasureWindow::OnChangeColor)
 	EVT_BUTTON(MeasureWindow::button_erosion_id, MeasureWindow::OnErosion)
 	EVT_BUTTON(MeasureWindow::button_dilation_id, MeasureWindow::OnDilation)
-	EVT_CHECKBOX(MeasureWindow::checkbox_color_id, MeasureWindow::OnSwitchColor)
-	EVT_CHECKBOX(MeasureWindow::checkbox_background_id, MeasureWindow::OnDeleteBackground)
+	EVT_TOGGLEBUTTON(MeasureWindow::toggle_color_id, MeasureWindow::OnSwitchColor)
+	EVT_TOGGLEBUTTON(MeasureWindow::toggle_background_id, MeasureWindow::OnDeleteBackground)
+	EVT_COLLAPSIBLEPANE_CHANGED(wxID_ANY, MeasureWindow::OnCollapse)
 wxEND_EVENT_TABLE()
 
 void MeasureWindow::OnSwitchColor(wxCommandEvent& event)
@@ -73,6 +78,28 @@ void MeasureWindow::OnChangeDifference(wxScrollEvent& event)
 void MeasureWindow::OnChangeTransparency(wxScrollEvent& event)
 {
 	update_image<false>();
+}
+
+void MeasureWindow::OnCollapse(wxCollapsiblePaneEvent& event)
+{
+	if (wxWindow* pane = FindWindowById(event.GetId()); !event.GetCollapsed())
+	{
+		if (!pane_sizer->IsEmpty())
+		{
+			wxWindow* item = pane_sizer->GetItem(std::size_t(0))->GetWindow();
+			static_cast<wxCollapsiblePane*>(item)->Collapse();
+			pane_sizer->Detach(item);
+			collapses_sizer->Insert(item->GetId() - collapse_morphology_id, item, 1, wxEXPAND, 5);
+		}
+		collapses_sizer->Detach(pane);
+		pane_sizer->Add(pane, 1, wxEXPAND, 5);
+	}
+	else
+	{
+		pane_sizer->Detach(pane);
+		collapses_sizer->Insert(pane->GetId() - collapse_morphology_id, pane, 1, wxEXPAND, 5);
+	}
+	parent_frame->Layout();
 }
 
 void MeasureWindow::OnErosion(wxCommandEvent& event)
@@ -352,7 +379,7 @@ void MeasureWindow::after_measure()
 	m_selected_pores.clear();
 	m_boundary_pixels.clear();
 	m_deleted_pores.clear();
-	if (m_checkBox_background->IsChecked())
+	if (m_toggle_background->GetValue())
 		m_deleted_pores.insert(get_biggest_pore_id());
 
 	uint32_t color_num = 3*pores_count;

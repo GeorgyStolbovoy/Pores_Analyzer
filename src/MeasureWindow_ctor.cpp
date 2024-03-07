@@ -1,41 +1,27 @@
 #include "MeasureWindow.h"
 #include "Frame.h"
-#include <wx/sizer.h>
 #include <wx/statbox.h>
 #include <wx/button.h>
 #include <wx/choice.h>
 #include <wx/spinctrl.h>
+#include <wx/stattext.h>
 
 MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN), parent_frame(static_cast<Frame*>(parent))
 {
-	wxBoxSizer* sizer_measure = new wxBoxSizer( wxHORIZONTAL );
+	wxBoxSizer* sizer_measure = new wxBoxSizer( wxVERTICAL );
 
-	wxBoxSizer* sizer_sliders = new wxBoxSizer( wxVERTICAL );
+	wxBoxSizer* sizer_horizontal = new wxBoxSizer( wxHORIZONTAL );
 
-	wxBoxSizer* sizer_colors = new wxBoxSizer( wxHORIZONTAL );
+	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Пороговая разность")), wxHORIZONTAL);
+	m_slider_algorithm = new wxSlider( this, slider_algorithm_id, 128, 1, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_algorithm, 0, wxALL|wxEXPAND|wxCENTRE, 5);
+	sizer_horizontal->Add(static_box_sizer, 1, wxEXPAND, 5 );
 
-	m_checkBox_colorize = new wxCheckBox( this, checkbox_color_id, wxT("Выделить поры цветом"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_checkBox_colorize->SetValue(true);
-	sizer_colors->Add( m_checkBox_colorize, 0, wxALL, 5 );
+	wxBoxSizer* sizer_vertical = new wxBoxSizer( wxVERTICAL );
 
-	m_button_changeColor = new wxButton( this, button_color_id, wxT("Поменять цвет"), wxDefaultPosition, wxDefaultSize, 0 );
-	sizer_colors->Add( m_button_changeColor, 1, wxALL, 5 );
-
-	sizer_sliders->Add( sizer_colors, 0, wxEXPAND, 5 );
-
-	m_checkBox_background = new wxCheckBox(this, checkbox_background_id, wxT("Автоудаление фона (самого большого элемента)"));
-	m_checkBox_background->SetValue(true);
-	sizer_sliders->Add( m_checkBox_background, 0, wxALL, 5 );
-
-	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Пороговая разность")), wxVERTICAL);
-	m_slider_algorithm = new wxSlider( this, slider_algorithm_id, 128, 1, 255, wxDefaultPosition, wxDefaultSize, wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_algorithm, 0, wxALL|wxEXPAND, 5);
-	sizer_sliders->Add(static_box_sizer, 0, wxEXPAND, 5 );
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Прозрачность")), wxVERTICAL);
-	m_slider_transparency = new wxSlider( this, slider_transparency_id, 0, 0, 100, wxDefaultPosition, wxDefaultSize, wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_transparency, 0, wxALL|wxEXPAND, 5);
-	sizer_sliders->Add(static_box_sizer, 0, wxEXPAND, 5);
+	m_toggle_background = new wxToggleButton(this, toggle_background_id, wxT("Автоудаление фона (самого большого элемента)"));
+	m_toggle_background->SetValue(true);
+	sizer_vertical->Add( m_toggle_background, 0, wxALL, 5 );
 
 	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Метрика")), wxHORIZONTAL);
 
@@ -53,33 +39,110 @@ MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDe
 	m_choice3->SetSelection( 0 );
 	static_box_sizer->Add( m_choice3, 0, wxALL, 5 );
 
-	sizer_sliders->Add( static_box_sizer, 1, wxEXPAND, 5 );
+	sizer_vertical->Add( static_box_sizer, 1, wxEXPAND, 5 );
 
-	sizer_measure->Add( sizer_sliders, 1, wxEXPAND, 5 );
+	sizer_horizontal->Add(sizer_vertical, 0, wxEXPAND, 5);
 
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Морфология")), wxHORIZONTAL);
+	sizer_measure->Add( sizer_horizontal, 0, wxEXPAND, 5 );
+
+	collapses_sizer = new wxBoxSizer( wxHORIZONTAL );
+
+	wxCollapsiblePane *collpane = new wxCollapsiblePane(this, collapse_morphology_id, "Морфология", wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE);
+
+	wxWindow *win = collpane->GetPane();
+	wxSizer *paneSz = new wxBoxSizer(wxHORIZONTAL);
+
+	paneSz->Add(0, 0, 1, wxEXPAND, 5);
 
 	wxBoxSizer* sizer_erosion = new wxBoxSizer( wxVERTICAL );
 
-	m_window_erosion = new MorphologyWindow(this);
+	m_window_erosion = new MorphologyWindow(win);
 	sizer_erosion->Add( m_window_erosion, 1, wxALL|wxEXPAND, 5 );
 
-	m_button_erosion = new wxButton( this, button_erosion_id, wxT("Эрозия"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_button_erosion = new wxButton( win, button_erosion_id, wxT("Эрозия"), wxDefaultPosition, wxDefaultSize, 0 );
 	sizer_erosion->Add( m_button_erosion, 0, wxALL|wxEXPAND, 5 );
 
-	static_box_sizer->Add( sizer_erosion, 1, wxEXPAND, 5 );
+	paneSz->Add( sizer_erosion, 0, wxEXPAND, 5 );
+
+	paneSz->Add(0, 0, 1, wxEXPAND, 5);
 
 	wxBoxSizer* sizer_dilation = new wxBoxSizer( wxVERTICAL );
 
-	m_window_dilation = new MorphologyWindow(this);
+	m_window_dilation = new MorphologyWindow(win);
 	sizer_dilation->Add( m_window_dilation, 1, wxALL|wxEXPAND, 5 );
 
-	m_button_dilation = new wxButton( this, button_dilation_id, wxT("Наращивание"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_button_dilation = new wxButton( win, button_dilation_id, wxT("Наращивание"), wxDefaultPosition, wxDefaultSize, 0 );
 	sizer_dilation->Add( m_button_dilation, 0, wxALL|wxEXPAND, 5 );
 
-	static_box_sizer->Add( sizer_dilation, 1, wxEXPAND, 5 );
+	paneSz->Add( sizer_dilation, 0, wxEXPAND, 5 );
 
-	sizer_measure->Add( static_box_sizer, 1, wxEXPAND, 5 );
+	paneSz->Add(0, 0, 1, wxEXPAND, 5);
+
+	win->SetSizer(paneSz);
+	paneSz->SetSizeHints(win);
+
+	collapses_sizer->Add(collpane, 1, wxEXPAND, 5);
+
+	wxCollapsiblePane *collpane_color = new wxCollapsiblePane(this, collapse_color_id, "Настройки цвета", wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE);
+
+	wxWindow *win_pane_color = collpane_color->GetPane();
+
+	paneSz = new wxBoxSizer( wxVERTICAL );
+
+	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
+
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_color, wxID_ANY, wxT("Границы пор")), wxVERTICAL);
+	m_toggle_boundaries = new wxToggleButton(win_pane_color, toggle_boundaries_id, wxT("Выделить границы пор"));
+	m_toggle_boundaries->SetValue(true);
+	static_box_sizer->Add(m_toggle_boundaries, 0, wxALL|wxEXPAND, 5);
+
+	wxSizer* sizer_horizontal_2 = new wxBoxSizer(wxHORIZONTAL);
+
+	wxStaticText* static_text = new wxStaticText(win_pane_color, wxID_ANY, wxT("Цвет: "));
+	sizer_horizontal_2->Add(static_text, 0, wxALIGN_CENTER_VERTICAL, 5);
+
+	m_colorpicker_boundaries = new wxColourPickerCtrl(win_pane_color, wxID_ANY, *wxRED, wxDefaultPosition, wxDefaultSize, wxCLRP_SHOW_LABEL);
+	sizer_horizontal_2->Add(m_colorpicker_boundaries, 1, wxEXPAND, 5);
+	
+	static_box_sizer->Add(sizer_horizontal_2, 0, wxALL|wxEXPAND, 5);
+	
+	sizer_horizontal->Add(static_box_sizer, 0, wxEXPAND, 5);
+
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_color, wxID_ANY, wxT("Прозрачность")), wxVERTICAL);
+	m_slider_transparency = new wxSlider( win_pane_color, slider_transparency_id, 0, 0, 100, wxDefaultPosition, wxDefaultSize /*wxSize(500, -1)*/, wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_transparency, 1, wxALL|wxEXPAND, 5);
+	
+	sizer_horizontal->Add(static_box_sizer, 1, wxEXPAND, 5);
+
+	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
+
+	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
+
+	m_toggle_colorize = new wxToggleButton(win_pane_color, toggle_color_id, wxT("Выделить поры цветом"));
+	m_toggle_colorize->SetValue(true);
+	sizer_horizontal->Add( m_toggle_colorize, 1, wxALL|wxEXPAND, 5 );
+
+	m_button_changeColor = new wxButton( win_pane_color, button_color_id, wxT("Поменять цвет"), wxDefaultPosition, wxDefaultSize, 0 );
+	sizer_horizontal->Add( m_button_changeColor, 1, wxALL|wxEXPAND, 5 );
+
+	paneSz->Add( sizer_horizontal, 0, wxEXPAND, 5 );
+
+	win_pane_color->SetSizer(paneSz);
+	paneSz->SetSizeHints(win_pane_color);
+
+	collapses_sizer->Add(collpane_color, 1, wxEXPAND, 5);
+
+	wxCollapsiblePane *collpane_filter = new wxCollapsiblePane(this, collapse_filter_id, "Фильтр", wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE);
+
+	wxWindow *win_pane_filter = collpane_filter->GetPane();
+
+	collapses_sizer->Add(collpane_filter, 1, wxEXPAND, 5);
+
+	sizer_measure->Add(collapses_sizer, 0, wxEXPAND, 5);
+
+	pane_sizer = new wxBoxSizer(wxHORIZONTAL);
+
+	sizer_measure->Add(pane_sizer, 0, wxEXPAND, 5);
 
 	SetSizer(sizer_measure);
 	Layout();

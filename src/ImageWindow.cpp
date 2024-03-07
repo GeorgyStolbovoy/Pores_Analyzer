@@ -150,7 +150,7 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
                 paint(w, h);
             };
 
-	        if (measure->m_checkBox_colorize->IsChecked())
+	        if (measure->m_toggle_colorize->GetValue())
 	        {
 	            if (transparency == 0 && measure->m_deleted_pores.empty() && image.width()*image.height() == measure->m_pores.size()) [[unlikely]]
 	            {

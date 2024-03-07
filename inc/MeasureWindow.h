@@ -3,7 +3,10 @@
 #include "ImageWindow.h"
 #include "MorphologyWindow.h"
 #include <wx/slider.h>
-#include <wx/checkbox.h>
+#include <wx/tglbtn.h>
+#include <wx/collpane.h>
+#include <wx/clrpicker.h>
+#include <wx/sizer.h>
 #include <set>
 #include <unordered_set>
 #include <random>
@@ -38,11 +41,12 @@ public:
 		>
 	>;
 
-	static wxWindowID slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id, checkbox_color_id, checkbox_background_id;
+	static wxWindowID collapse_morphology_id, collapse_color_id, collapse_filter_id, slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id, toggle_color_id, toggle_background_id, toggle_boundaries_id;
 	MorphologyWindow *m_window_erosion, *m_window_dilation;
 	wxSlider *m_slider_algorithm, *m_slider_transparency;
-	wxCheckBox *m_checkBox_colorize, *m_checkBox_background;
+	wxToggleButton *m_toggle_colorize, *m_toggle_background, *m_toggle_boundaries;
 	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
+	wxColourPickerCtrl* m_colorpicker_boundaries;
 
 	pores_container m_pores;
 	std::set<uint32_t> m_deleted_pores, m_selected_pores;
@@ -60,6 +64,7 @@ public:
 	void OnDilation(wxCommandEvent& event);
 	void OnSwitchColor(wxCommandEvent& event);
 	void OnDeleteBackground(wxCommandEvent& event);
+	void OnCollapse(wxCollapsiblePaneEvent& event);
 
 private:
 	using inspecting_pixels_t = boost::multi_index_container<
@@ -84,6 +89,7 @@ private:
 
 private:
 	Frame* parent_frame;
+	wxSizer *collapses_sizer, *pane_sizer;
 
 	wxDECLARE_EVENT_TABLE();
 };

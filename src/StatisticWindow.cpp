@@ -55,21 +55,38 @@ struct pore_statistic_collector
 	}
 };
 
-//#pragma warning(disable : 5103)
 // Актуальные вычисляемые параметры
 #define PARAMS_NAMES (SQUARE)(PERIMETER)(DIAMETER)(CENTROID_X)(CENTROID_Y)(LENGTH_OY)(WIDTH_OX)(SHAPE)(ELONGATION)
 #define PARAMS pores_square, perimeter_mean, diameter_mean, centroid_x_mean, centroid_y_mean, lenght_oy_mean, width_ox_mean, shape_mean, elongation_mean
 #define MEAN_PARAMS_DECLARATOR(s, _, n, elem) &elem = std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(container[0])BOOST_PP_COMMA_IF(BOOST_PP_LESS(BOOST_PP_INC(n), BOOST_PP_VARIADIC_SIZE(PARAMS)))
-#define RECALCULATE_MEAN_DEVIATION_IMPL(z, n, delete_or_recover) \
+#define RECALCULATE_MEAN_DEVIATION(z, n, delete_or_recover) \
 	{ \
-		((BOOST_PP_VARIADIC_ELEM(n, PARAMS) *= (pores_num BOOST_PP_IF(delete_or_recover,+,-) 1)) BOOST_PP_CAT(BOOST_PP_IF(delete_or_recover,-,+), =) std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(item_row)) /= pores_num; \
+		((BOOST_PP_VARIADIC_ELEM(n, PARAMS) *= (parent_statwindow->num_considered BOOST_PP_IF(delete_or_recover,+,-) 1)) BOOST_PP_CAT(BOOST_PP_IF(delete_or_recover,-,+), =) std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(item_row)) /= parent_statwindow->num_considered; \
 		double deviation = 0; \
 		for (auto it = container.begin() + 4, end = container.end(); it != end; ++it) \
 			if (!attributes.contains(std::get<ID>(*it))) \
 				deviation += std::pow(BOOST_PP_VARIADIC_ELEM(n, PARAMS) - std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(*it), 2); \
-		std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(container[1]) = std::sqrtf(deviation/(pores_num-1)); \
+		std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(container[1]) = std::sqrtf(deviation/(parent_statwindow->num_considered-1)); \
 	}
-#define RECALCULATE_MEAN_DEVIATION(delete_or_recover) float BOOST_PP_SEQ_FOR_EACH_I(MEAN_PARAMS_DECLARATOR, ~, BOOST_PP_VARIADIC_TO_SEQ(PARAMS)); BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), RECALCULATE_MEAN_DEVIATION_IMPL, delete_or_recover)
+#define RECALCULATE(delete_or_recover) \
+	{ \
+		if (parent_statwindow->num_considered > 1) \
+		{ \
+			BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(PARAMS_NAMES), CHECK_MIN_MAX, 1) \
+			BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(PARAMS_NAMES), CHECK_MIN_MAX, 0) \
+			float BOOST_PP_SEQ_FOR_EACH_I(MEAN_PARAMS_DECLARATOR, ~, BOOST_PP_VARIADIC_TO_SEQ(PARAMS)); \
+			BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), RECALCULATE_MEAN_DEVIATION, delete_or_recover) \
+		} \
+		else if (parent_statwindow->num_considered == 1) \
+		{ \
+			BOOST_PP_EXPR_IF(delete_or_recover, for (auto it = container.begin() + 4, end = container.end(); it != end; ++it) if (!attributes.contains(std::get<ID>(*it))) {) \
+			container[0] = BOOST_PP_IF(delete_or_recover, *it; break;}, item_row;) \
+			std::get<PoresStatisticList::ID>(container[0]) = 0; \
+			container[1] = PoresStatisticList::row_t{0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}; \
+			container[2] = container[0]; \
+			container[3] = container[0]; \
+		} \
+	}
 
 // StatisticWindow
 
@@ -112,9 +129,23 @@ StatisticWindow::StatisticWindow(wxWindow* parent)
 	distribution_window = new DistributionWindow(this);
 	m_aui->AddPane(distribution_window, wxAuiPaneInfo{}.Caption(wxT("Распределение")).CloseButton(false).Right().MaximizeButton().PaneBorder(true).Name(wxT("Distrib")));
 
-	common_statistic_list->SetColumnWidth(0, wxLIST_AUTOSIZE_USEHEADER);
+	constexpr float fmax = std::numeric_limits<float>::max();
+	common_statistic_list->container[0] = CommonStatisticList::row_t{wxString{"Ширина"}, 0};
+	common_statistic_list->container[1] = CommonStatisticList::row_t{wxString{"Высота"}, 0};
+	common_statistic_list->container[2] = CommonStatisticList::row_t{wxString{"Количество пор"}, 0};
+	common_statistic_list->container[3] = CommonStatisticList::row_t{wxString{"Удельное количество пор"}, 0};
+	common_statistic_list->container[4] = CommonStatisticList::row_t{wxString{"Площадь пор"}, 0};
+	common_statistic_list->container[5] = CommonStatisticList::row_t{wxString{"Площадь матрицы"}, 0};
+	pores_statistic_list->container.resize(2, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+	pores_statistic_list->container.push_back({0, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax});
+	pores_statistic_list->container.push_back({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+	common_statistic_list->SetItemCount(6);
+	pores_statistic_list->SetItemCount(4);
+
+	common_statistic_list->SetColumnWidth(0, wxLIST_AUTOSIZE);
 	common_statistic_list->SetColumnWidth(1, wxLIST_AUTOSIZE_USEHEADER);
-	for (uint8_t i = 0, count = pores_statistic_list->GetColumnCount(); i < count; ++i)
+	pores_statistic_list->SetColumnWidth(0, wxLIST_AUTOSIZE);
+	for (uint8_t i = 1, count = pores_statistic_list->GetColumnCount(); i < count; ++i)
 		pores_statistic_list->SetColumnWidth(i, wxLIST_AUTOSIZE_USEHEADER);
 
 	m_aui->Update();
@@ -124,18 +155,18 @@ void StatisticWindow::CollectStatistic()
 {
 	MeasureWindow* measure = parent_frame->m_measure;
 	bool collect_deleted = settings_window->m_checkBox_deleted->IsChecked();
-	uint32_t pores_num = measure->pores_count - measure->m_deleted_pores.size(), pores_square = 0;
+	uint32_t pores_square = 0;
 	double perimeter_mean = 0, diameter_mean = 0, centroid_x_mean = 0, centroid_y_mean = 0, lenght_oy_mean = 0, width_ox_mean = 0, shape_mean = 0, elongation_mean = 0;
+	num_considered = measure->pores_count - measure->m_deleted_pores.size();
 
-	common_statistic_list->SetItemCount(6);
 	pores_statistic_list->attributes.clear();
 	pores_statistic_list->container.clear();
-	pores_statistic_list->container.reserve((collect_deleted ? measure->pores_count : pores_num) + 4);
+	pores_statistic_list->container.reserve((collect_deleted ? measure->pores_count : num_considered) + 4);
 	pores_statistic_list->container.resize(2, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
 	constexpr float fmax = std::numeric_limits<float>::max();
 	pores_statistic_list->container.push_back({0, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax});
 	pores_statistic_list->container.push_back({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
-	pores_statistic_list->SetItemCount((collect_deleted ? measure->pores_count : pores_num) + 4);
+	pores_statistic_list->SetItemCount((collect_deleted ? measure->pores_count : num_considered) + 4);
 
 	pore_statistic_collector psc(measure, pores_statistic_list->container);
 	psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin();
@@ -181,27 +212,35 @@ void StatisticWindow::CollectStatistic()
 	} while (psc.it != psc.end);
 
 	uint32_t all_size = measure->width*measure->height;
-	common_statistic_list->container[0] = CommonStatisticList::row_t{wxString{"Ширина"}, measure->width};
-	common_statistic_list->container[1] = CommonStatisticList::row_t{wxString{"Высота"}, measure->height};
-	common_statistic_list->container[2] = CommonStatisticList::row_t{wxString{"Количество пор"}, pores_num};
-	common_statistic_list->container[3] = CommonStatisticList::row_t{wxString{"Удельное количество пор"}, pores_square/float(all_size)};
-	common_statistic_list->container[4] = CommonStatisticList::row_t{wxString{"Площадь пор"}, pores_square};
-	common_statistic_list->container[5] = CommonStatisticList::row_t{wxString{"Площадь матрицы"}, all_size - pores_square};
+	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[0]) = measure->width;
+	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[1]) = measure->height;
+	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[2]) = num_considered;
+	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[3]) = pores_square/float(all_size);
+	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[4]) = pores_square;
+	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[5]) = all_size - pores_square;
 
-#define SET_MEAN_DEVIATION(z, n, __) \
+#define SET_MEAN_DEVIATION(z, n, set_deviation) \
 		{ \
 			auto& mean = std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[0]); \
-			mean = BOOST_PP_VARIADIC_ELEM(n, PARAMS)/float(pores_num); \
-			double deviation = 0; \
-			for (auto it = pores_statistic_list->container.begin() + 4, end = pores_statistic_list->container.end(); it != end; ++it) \
-				if (!pores_statistic_list->attributes.contains(std::get<PoresStatisticList::ID>(*it))) \
-					deviation += std::pow(mean - std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(*it), 2); \
-			std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[1]) = std::sqrtf(deviation/(pores_num-1)); \
+			mean = BOOST_PP_VARIADIC_ELEM(n, PARAMS)/float(num_considered); \
+			BOOST_PP_IF(set_deviation, \
+				double deviation = 0; \
+				for (auto it = pores_statistic_list->container.begin() + 4, end = pores_statistic_list->container.end(); it != end; ++it) \
+					if (!pores_statistic_list->attributes.contains(std::get<PoresStatisticList::ID>(*it))) \
+						deviation += std::pow(mean - std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(*it), 2); \
+				std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[1]) = std::sqrtf(deviation/(num_considered-1));, \
+				std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[1]) = 1; \
+			) \
 		}
-	BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), SET_MEAN_DEVIATION, ~)
+	if (num_considered > 1)
+	{
+		BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), SET_MEAN_DEVIATION, 1)
+	}
+	else if (num_considered == 1)
+	{
+		BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), SET_MEAN_DEVIATION, 0)
+	}
 
-	common_statistic_list->SetColumnWidth(0, wxLIST_AUTOSIZE);
-	common_statistic_list->SetColumnWidth(1, wxLIST_AUTOSIZE);
 	pores_statistic_list->set_columns_width();
 	common_statistic_list->Refresh();
 	pores_statistic_list->Refresh();
@@ -238,8 +277,8 @@ void StatisticWindow::Aui::InitPanesPositions(wxSize size)
 
 // CommonStatisticList
 
-StatisticWindow::CommonStatisticList::CommonStatisticList(wxWindow* parent)
-	: wxListCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_VIRTUAL | wxLC_HRULES | wxLC_VRULES)
+StatisticWindow::CommonStatisticList::CommonStatisticList(StatisticWindow* parent)
+	: wxListCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_VIRTUAL | wxLC_HRULES | wxLC_VRULES), parent_statwindow(parent)
 {
 	EnableAlternateRowColours();
 }
@@ -247,7 +286,6 @@ StatisticWindow::CommonStatisticList::CommonStatisticList(wxWindow* parent)
 wxString StatisticWindow::CommonStatisticList::OnGetItemText(long item, long column) const
 {
 	char buf[16];
-#define CASE_NUMBER(value) case value: *std::to_chars(buf, buf + 16, std::get<value>(container[item])).ptr = '\0'; return {buf};
 	switch (column)
 	{
 		case PARAM_NAME: return std::get<PARAM_NAME>(container[item]);
@@ -272,9 +310,9 @@ StatisticWindow::PoresStatisticList::PoresStatisticList(StatisticWindow* parent)
 
 wxString StatisticWindow::PoresStatisticList::OnGetItemText(long item, long column) const
 {
-	char buf[16];
-#define CASE_NUMBER(value) case value: *std::to_chars(buf, buf + 16, std::get<value>(container[item])).ptr = '\0'; return {buf};
+#define CASE_NUMBER(value) case value: if (parent_statwindow->num_considered > 0 || attributes.contains(item - 3)) {*std::to_chars(buf, buf + 16, std::get<value>(container[item])).ptr = '\0'; return {buf};} else return {'-'};
 
+	char buf[16];
 	switch (column)
 	{
 	case ID:
@@ -428,6 +466,7 @@ void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 	row_t item_row = *item_iter;
 	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
 		container.erase(item_iter);
+	--parent_statwindow->num_considered;
 
 #define CHECK_MIN_MAX(z, n, is_min) \
 		{ \
@@ -441,13 +480,10 @@ void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 							value = tmp_value; \
 			} \
 		}
-	BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), CHECK_MIN_MAX, 1)
-	BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), CHECK_MIN_MAX, 0)
+	RECALCULATE(1)
 #undef CHECK_MIN_MAX
 
-	uint32_t pores_num = measure->pores_count - measure->m_deleted_pores.size();
-	RECALCULATE_MEAN_DEVIATION(1)
-	after_changes(measure, pores_num, std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) -= measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
+	after_changes(measure, std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) -= measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
 }
 
 void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
@@ -465,30 +501,29 @@ void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
 		pore_statistic_collector psc(measure, container);
 		psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(pore_id);
 		psc.collect(pore_id);
-		if (std::size_t offset = pore_id + 3 - std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(pore_id)); offset < container.size()-1)
+		std::size_t offset = pore_id + 3 - std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(pore_id));
+		if (offset < container.size()-1)
 		{
 			row_t row = std::move(container.back());
-			for (std::size_t i = container.size() - 1; i > offset;)
-				container[i] = std::move(container[--i]);
+			for (std::size_t i = container.size() - 1; i > offset; --i)
+				container[i] = std::move(container[i - 1]);
 			container[offset] = std::move(row);
-			item_iter = container.begin() + offset;
 		}
+		item_iter = container.begin() + offset;
 	}
 	row_t& item_row = *item_iter;
+	++parent_statwindow->num_considered;
 
-#define CHECK_MIN_MAX(z, is_min, elem) \
+#define CHECK_MIN_MAX(z, n, is_min) \
 		{ \
-			auto& value = std::get<elem>(container[BOOST_PP_IF(is_min, 2, 3)]); \
-			if (float item_value = std::get<elem>(item_row); item_value BOOST_PP_IF(is_min, <, >) value) [[unlikely]] \
+			auto& value = std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(container[BOOST_PP_IF(is_min, 2, 3)]); \
+			if (float item_value = std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(item_row); item_value BOOST_PP_IF(is_min, <, >) value) [[unlikely]] \
 				value = item_value; \
 		}
-	BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), CHECK_MIN_MAX, 1)
-	BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), CHECK_MIN_MAX, 0)
+	RECALCULATE(0)
 #undef CHECK_MIN_MAX
 
-	uint32_t pores_num = measure->pores_count - measure->m_deleted_pores.size();
-	RECALCULATE_MEAN_DEVIATION(0)
-	after_changes(measure, pores_num, std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) += measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
+	after_changes(measure, std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) += measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
 }
 
 void StatisticWindow::PoresStatisticList::set_columns_width()
@@ -500,15 +535,15 @@ void StatisticWindow::PoresStatisticList::set_columns_width()
 			SetColumnWidth(i, wxLIST_AUTOSIZE);
 }
 
-void StatisticWindow::PoresStatisticList::after_changes(MeasureWindow* measure, uint32_t pores_num, float pores_square)
+void StatisticWindow::PoresStatisticList::after_changes(MeasureWindow* measure, float pores_square)
 {
 	uint32_t all_size = measure->width*measure->height;
-	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[2]) = pores_num;
+	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[2]) = parent_statwindow->num_considered;
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[3]) = pores_square/float(all_size);
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) = pores_square;
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[5]) = all_size - pores_square;
 
-	SetItemCount((parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() ? measure->pores_count : pores_num) + 4);
+	SetItemCount((parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() ? measure->pores_count : parent_statwindow->num_considered) + 4);
 	//parent_statwindow->common_statistic_list->SetColumnWidth(1, wxLIST_AUTOSIZE);
 	//set_columns_width();
 	parent_statwindow->common_statistic_list->Refresh();
@@ -535,23 +570,23 @@ void StatisticWindow::DistributionWindow::OnPaint(wxPaintEvent& event)
 	wxBufferedPaintDC dc(this);
 	dc.Clear();
 	int width = GetSize().GetWidth(), height = GetSize().GetHeight();
-	double scale = 13.0/16.0;
+	double scale = 12.0/16.0;
 	wxPen pen{wxColour{0ul}, 3};
 	std::unique_ptr<wxGraphicsContext> gc{wxGraphicsContext::Create(dc)};
 	gc->SetPen(pen);
-	gc->SetTransform(gc->CreateMatrix(scale, 0, 0, -scale, width/16.0, 15.0*height/16.0));
+	wxGraphicsMatrix transform_matrix = gc->CreateMatrix(scale, 0, 0, -scale, width/16.0, 15.0*height/16.0), default_matrix = gc->CreateMatrix(1, 0, 0, 1, 0, 0);
 
 	wxGraphicsPath path_axis = gc->CreatePath();
 	path_axis.MoveToPoint(0.0, 0.0);
-	path_axis.AddLineToPoint(0.0, height*(1 + 1/16.0/scale));
-	path_axis.AddLineToPoint(-width/32.0, height);
-	path_axis.MoveToPoint(0.0, height*(1 + 1/16.0/scale));
-	path_axis.AddLineToPoint(width/32.0, height);
+	path_axis.AddLineToPoint(0.0, height*(1 + 2/16.0/scale));
+	path_axis.AddLineToPoint(-width/32.0, height*(1 + 1/16.0/scale));
+	path_axis.MoveToPoint(0.0, height*(1 + 2/16.0/scale));
+	path_axis.AddLineToPoint(width/32.0, height*(1 + 1/16.0/scale));
 	path_axis.MoveToPoint(0.0, 0.0);
-	path_axis.AddLineToPoint(width*(1 + 1/16.0/scale), 0.0);
-	path_axis.AddLineToPoint(width, -height/32.0);
-	path_axis.MoveToPoint(width*(1 + 1/16.0/scale), 0.0);
-	path_axis.AddLineToPoint(width, height/32.0);
+	path_axis.AddLineToPoint(width*(1 + 2/16.0/scale), 0.0);
+	path_axis.AddLineToPoint(width*(1 + 1/16.0/scale), -height/32.0);
+	path_axis.MoveToPoint(width*(1 + 2/16.0/scale), 0.0);
+	path_axis.AddLineToPoint(width*(1 + 1/16.0/scale), height/32.0);
 
 	if (column_index != PoresStatisticList::ID)
 	{
@@ -570,25 +605,107 @@ void StatisticWindow::DistributionWindow::OnPaint(wxPaintEvent& event)
 				max_count = columns_counts[i];
 
 		wxGraphicsPath path_columns = gc->CreatePath();
+		char buf[16];
+		std::vector<wxString> strings;
+		strings.reserve(k+1);
+		double label_max_width = scale*draw_interval, label_max_height = height/16.0;
+		uint8_t max_lenght = 0, index_for_set_font;
+		*std::to_chars(buf, buf + 16, max_count).ptr = '\0';
+		set_correct_font_size(gc.get(), {buf}, 10, label_max_width, label_max_height);
+		double text_width_tmp, text_height_tmp;
 		for (uint8_t i = 0; i < k; ++i)
 		{
 			double h = height*columns_counts[i]/double(max_count);
+			gc->SetTransform(transform_matrix);
 			path_columns.AddRectangle(i*draw_interval, 0, draw_interval, h);
+			*std::to_chars(buf, buf + 16, columns_counts[i]).ptr = '\0';
+			wxString count_str{buf};
+			gc->GetTextExtent(count_str, &text_width_tmp, &text_height_tmp);
+			gc->SetTransform(default_matrix);
+			gc->DrawText(count_str, width/16.0 + scale*(draw_interval*(i + 0.5)) - text_width_tmp/2, height*(1 - 1/16.0) - scale*h - text_height_tmp);
+			*std::to_chars(buf, buf + 16, std::roundf(100*(values_interval*i + min_value))/100).ptr = '\0';
+			if (uint8_t len = std::strlen(buf); len > max_lenght)
+				index_for_set_font = i;
+			strings.emplace_back(buf);
+		}
+		*std::to_chars(buf, buf + 16, std::roundf(100*(max_value))/100).ptr = '\0';
+		strings.emplace_back(buf);
+		label_max_width *= 0.9f;
+		set_correct_font_size(gc.get(), strings[index_for_set_font], 10, label_max_width, label_max_height);
+		for (auto begin = strings.begin() + 1, end = strings.end(), it = begin; it != end; ++it)
+		{
+			gc->GetTextExtent(*it, &text_width_tmp, &text_height_tmp);
+			if (text_width_tmp >= label_max_width) [[unlikely]]
+			{
+				wxString copy{*it};
+				if (int point_pos = copy.Find('.'); point_pos != wxNOT_FOUND)
+				{
+					do
+					{
+						copy.RemoveLast();
+						gc->GetTextExtent(copy, &text_width_tmp, &text_height_tmp);
+					} while (text_width_tmp >= label_max_width);
+					if (copy.size() >= unsigned(point_pos))
+					{
+						if (copy.size() == point_pos + 1) [[unlikely]]
+							copy.RemoveLast();
+						*it = std::move(copy);
+						continue;
+					}
+					else
+						it->Truncate(point_pos);
+				}
+				set_correct_font_size(gc.get(), *it, 10, label_max_width, label_max_height);
+			}
+		}
+		//gc->SetTransform(default_matrix);
+		for (uint8_t i = 0; i <= k; ++i)
+		{
+			gc->GetTextExtent(strings[i], &text_width_tmp, &text_height_tmp);
+			gc->DrawText(strings[i], width/16.0 + scale*(draw_interval*i - text_width_tmp/2), height*(1 - 1/16.0));
 		}
 
-		wxFont font{16, wxFONTFAMILY_ROMAN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_SEMIBOLD};
-		gc->SetFont(font, {0ul});
 		wxListItem column_info;
-		double text_width, text_height;
+		column_info.SetMask(wxLIST_MASK_TEXT);
 		parent_statwindow->pores_statistic_list->GetColumn(column_index, column_info);
+		set_correct_font_size(gc.get(), column_info.GetText(), 16, scale*width, height*2/16.0);
+		double text_width, text_height;
 		gc->GetTextExtent(column_info.GetText(), &text_width, &text_height);
-		gc->DrawText(column_info.GetText(), (width - text_width)/2, height + (height*2/16.0 - text_height)/scale);
-		// TODO: override OnGetItemColumnAttr
+		gc->DrawText(column_info.GetText(), (width - text_width)/2, 0);
 
+		gc->SetTransform(transform_matrix);
 		gc->SetBrush(*wxRED_BRUSH);
 		gc->DrawPath(path_columns);
 	}
+	else
+		gc->SetTransform(transform_matrix);
 	gc->StrokePath(path_axis);
+}
+
+void StatisticWindow::DistributionWindow::set_correct_font_size(wxGraphicsContext* gc, const wxString& text, int initial_size, double max_width, double max_height)
+{
+	wxFont font{initial_size, wxFONTFAMILY_ROMAN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_SEMIBOLD};
+	gc->SetFont(font, {0ul});
+	double text_width, text_height;
+	gc->GetTextExtent(text, &text_width, &text_height);
+	if (text_height >= max_height || text_width >= max_width)
+		do
+		{
+			font.SetPointSize(--initial_size);
+			gc->SetFont(font, {0ul});
+			gc->GetTextExtent(text, &text_width, &text_height);
+		} while (text_height >= max_height || text_width >= max_width);
+	else
+	{
+		do
+		{
+			font.SetPointSize(++initial_size);
+			gc->SetFont(font, {0ul});
+			gc->GetTextExtent(text, &text_width, &text_height);
+		} while (text_height < max_height && text_width < max_width);
+		font.SetPointSize(--initial_size);
+		gc->SetFont(font, {0ul});
+	}
 }
 
 // SettingsWindow
