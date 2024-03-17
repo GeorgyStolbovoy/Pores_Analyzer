@@ -182,6 +182,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\CorrectionWindow.cpp" />
+    <ClCompile Include="src\DoubleSlider.cpp" />
     <ClCompile Include="src\Entry.cpp" />
     <ClCompile Include="src\Frame.cpp" />
     <ClCompile Include="src\Frame_ctor.cpp" />
@@ -202,6 +203,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\CorrectionWindow.h" />
+    <ClInclude Include="inc\DoubleSlider.h" />
     <ClInclude Include="inc\Frame.h" />
     <ClInclude Include="inc\ImageWindow.h" />
     <ClInclude Include="inc\MeasureWindow.h" />

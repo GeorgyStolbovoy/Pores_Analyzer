@@ -2,6 +2,7 @@
 
 #include "ImageWindow.h"
 #include "MorphologyWindow.h"
+#include "DoubleSlider.h"
 #include <wx/slider.h>
 #include <wx/tglbtn.h>
 #include <wx/collpane.h>

@@ -136,6 +136,55 @@ MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDe
 
 	wxWindow *win_pane_filter = collpane_filter->GetPane();
 
+	paneSz = new wxBoxSizer( wxVERTICAL );
+
+	wxSlider* tmp_slider;
+
+	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
+
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT("Площадь")), wxVERTICAL);
+	DoubleSlider* double_slider = new DoubleSlider(win_pane_filter);
+	static_box_sizer->Add(double_slider, 1, wxALL|wxEXPAND, 5);
+	sizer_horizontal->Add(static_box_sizer, 0, wxEXPAND, 5);
+
+	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
+
+#define ADD_SLIDER(name) \
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT(#name)), wxVERTICAL); \
+	tmp_slider = new wxSlider( win_pane_filter, wxID_ANY, 0, 0, 100, wxDefaultPosition, wxDefaultSize /*wxSize(500, -1)*/, wxSL_HORIZONTAL|wxSL_MIN_MAX_LABELS); \
+	static_box_sizer->Add(tmp_slider, 1, wxALL|wxEXPAND, 5); \
+	sizer_horizontal->Add(static_box_sizer, 1, wxEXPAND, 5);
+
+	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
+
+	ADD_SLIDER(Периметр)
+	ADD_SLIDER(Эквивалентный диаметр)
+	ADD_SLIDER(Координата X)
+	ADD_SLIDER(Координата Y)
+
+	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
+
+	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
+
+	ADD_SLIDER(Длина)
+	ADD_SLIDER(Ширина)
+	ADD_SLIDER(Высота проекции)
+	ADD_SLIDER(Ширина проекции)
+
+	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
+
+	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
+
+	ADD_SLIDER(Наибольший диаметр)
+	ADD_SLIDER(Наименьший диаметр)
+	ADD_SLIDER(Фактор формы)
+	ADD_SLIDER(Удлинённость)
+
+	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
+
+	win_pane_filter->SetSizer(paneSz);
+	paneSz->SetSizeHints(win_pane_filter);
+
 	collapses_sizer->Add(collpane_filter, 1, wxEXPAND, 5);
 
 	sizer_measure->Add(collapses_sizer, 0, wxEXPAND, 5);

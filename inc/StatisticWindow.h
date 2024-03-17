@@ -6,7 +6,6 @@
 #include <wx/aui/aui.h>
 #include <wx/graphics.h>
 #include <array>
-#include <boost/preprocessor/variadic/size.hpp>
 
 class Frame;
 struct MeasureWindow;
