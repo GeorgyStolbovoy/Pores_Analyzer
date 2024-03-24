@@ -4,7 +4,6 @@
 #include <wx/dcbuffer.h>
 #include <wx/statbox.h>
 #include <charconv>
-#include <boost/preprocessor.hpp>
 
 // Auxiliary
 
@@ -107,20 +106,8 @@ StatisticWindow::StatisticWindow(wxWindow* parent)
 	m_aui->AddPane(common_statistic_list, wxAuiPaneInfo{}.Caption(wxT("Общая характеристика")).CloseButton(false).Top().MaximizeButton().PaneBorder(true).Name(wxT("Common")));
 
 	pores_statistic_list = new PoresStatisticList(this);
-	pores_statistic_list->AppendColumn(wxT("№"));
-	pores_statistic_list->AppendColumn(wxT("Площадь"));
-	pores_statistic_list->AppendColumn(wxT("Периметр"));
-	pores_statistic_list->AppendColumn(wxT("Эквивалентный диаметр"));
-	pores_statistic_list->AppendColumn(wxT("Координата X"));
-	pores_statistic_list->AppendColumn(wxT("Координата Y"));
-	pores_statistic_list->AppendColumn(wxT("Длина"));
-	pores_statistic_list->AppendColumn(wxT("Ширина"));
-	pores_statistic_list->AppendColumn(wxT("Высота проекции"));
-	pores_statistic_list->AppendColumn(wxT("Ширина проекции"));
-	pores_statistic_list->AppendColumn(wxT("Наибольший диаметр"));
-	pores_statistic_list->AppendColumn(wxT("Наименьший диаметр"));
-	pores_statistic_list->AppendColumn(wxT("Фактор формы"));
-	pores_statistic_list->AppendColumn(wxT("Удлинённость"));
+#define APPEND_COLUMN(z, data, name) pores_statistic_list->AppendColumn(wxT(name));
+	BOOST_PP_SEQ_FOR_EACH(APPEND_COLUMN, ~, PORES_PARAMS_NAMES)
 	m_aui->AddPane(pores_statistic_list, wxAuiPaneInfo{}.Caption(wxT("Характеристики пор")).CloseButton(false).Top().MaximizeButton().PaneBorder(true).Name(wxT("Pores")));
 
 	settings_window = new SettingsWindow(this);
@@ -241,6 +228,15 @@ void StatisticWindow::CollectStatistic()
 		BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), SET_MEAN_DEVIATION, 0)
 	}
 
+#define SET_SLIDERS_VALUES(z, data, i, s) measure->s->set_values( \
+	std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(pores_statistic_list->container[2]), \
+	std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(pores_statistic_list->container[3]));
+
+	BOOST_PP_SEQ_FOR_EACH_I(SET_SLIDERS_VALUES, ~, SLIDERS)
+
+	wxWindow* filters_pane = measure->GetWindowChild(measure->collapse_filter_id);
+	filters_pane->Refresh();
+	filters_pane->Update();
 	pores_statistic_list->set_columns_width();
 	common_statistic_list->Refresh();
 	pores_statistic_list->Refresh();
@@ -712,11 +708,13 @@ void StatisticWindow::DistributionWindow::set_correct_font_size(wxGraphicsContex
 
 wxWindowID
 	StatisticWindow::SettingsWindow::checkBox_color_id = wxWindow::NewControlId(),
-	StatisticWindow::SettingsWindow::checkBox_deleted_id = wxWindow::NewControlId();
+	StatisticWindow::SettingsWindow::checkBox_deleted_id = wxWindow::NewControlId(),
+	StatisticWindow::SettingsWindow::checkBox_filtered_id = wxWindow::NewControlId();
 
 wxBEGIN_EVENT_TABLE(StatisticWindow::SettingsWindow, wxWindow)
 	EVT_CHECKBOX(StatisticWindow::SettingsWindow::checkBox_color_id, StatisticWindow::SettingsWindow::OnDistributionColor)
 	EVT_CHECKBOX(StatisticWindow::SettingsWindow::checkBox_deleted_id, StatisticWindow::SettingsWindow::OnShowDeleted)
+	EVT_CHECKBOX(StatisticWindow::SettingsWindow::checkBox_filtered_id, StatisticWindow::SettingsWindow::OnShowFiltered)
 wxEND_EVENT_TABLE()
 
 StatisticWindow::SettingsWindow::SettingsWindow(wxWindow* parent) : wxWindow(parent, wxID_ANY), parent_statwindow(static_cast<StatisticWindow*>(parent))
@@ -730,6 +728,9 @@ StatisticWindow::SettingsWindow::SettingsWindow(wxWindow* parent) : wxWindow(par
 
 	m_checkBox_deleted = new wxCheckBox(this, checkBox_deleted_id, wxT("Показывать в списке удалённые поры"));
 	static_box_sizer->Add( m_checkBox_deleted, 0, wxALL, 5 );
+
+	m_checkBox_filtered = new wxCheckBox(this, checkBox_filtered_id, wxT("Показывать в списке отфильтрованные поры"));
+	static_box_sizer->Add( m_checkBox_filtered, 0, wxALL, 5 );
 
 	SetSizer(static_box_sizer);
 }
@@ -767,4 +768,9 @@ void StatisticWindow::SettingsWindow::OnShowDeleted(wxCommandEvent& event)
 	//parent_statwindow->pores_statistic_list->set_columns_width();
 	parent_statwindow->pores_statistic_list->Refresh();
 	parent_statwindow->pores_statistic_list->Update();
+}
+
+void StatisticWindow::SettingsWindow::OnShowFiltered(wxCommandEvent& event)
+{
+	;
 }

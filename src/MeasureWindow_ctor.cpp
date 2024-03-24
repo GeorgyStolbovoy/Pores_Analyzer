@@ -138,49 +138,20 @@ MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDe
 
 	paneSz = new wxBoxSizer( wxVERTICAL );
 
-	wxSlider* tmp_slider;
+#define ADD_SLIDER(z, data, i, s) \
+	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);) \
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT(BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS_NAMES)))), wxVERTICAL); \
+	s = new DoubleSlider(win_pane_filter); \
+	static_box_sizer->Add(s, 1, wxALL|wxEXPAND, 5); \
+	sizer_horizontal->Add(static_box_sizer, data, wxEXPAND, 5); \
+	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), paneSz->Add(sizer_horizontal, 1, wxEXPAND, 5);)
 
-	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT("Площадь")), wxVERTICAL);
-	DoubleSlider* double_slider = new DoubleSlider(win_pane_filter);
-	static_box_sizer->Add(double_slider, 1, wxALL|wxEXPAND, 5);
-	sizer_horizontal->Add(static_box_sizer, 0, wxEXPAND, 5);
-
-	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
-
-#define ADD_SLIDER(name) \
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT(#name)), wxVERTICAL); \
-	tmp_slider = new wxSlider( win_pane_filter, wxID_ANY, 0, 0, 100, wxDefaultPosition, wxDefaultSize /*wxSize(500, -1)*/, wxSL_HORIZONTAL|wxSL_MIN_MAX_LABELS); \
-	static_box_sizer->Add(tmp_slider, 1, wxALL|wxEXPAND, 5); \
-	sizer_horizontal->Add(static_box_sizer, 1, wxEXPAND, 5);
-
-	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
-
-	ADD_SLIDER(Периметр)
-	ADD_SLIDER(Эквивалентный диаметр)
-	ADD_SLIDER(Координата X)
-	ADD_SLIDER(Координата Y)
-
-	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
-
-	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
-
-	ADD_SLIDER(Длина)
-	ADD_SLIDER(Ширина)
-	ADD_SLIDER(Высота проекции)
-	ADD_SLIDER(Ширина проекции)
-
-	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
-
-	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
-
-	ADD_SLIDER(Наибольший диаметр)
-	ADD_SLIDER(Наименьший диаметр)
-	ADD_SLIDER(Фактор формы)
-	ADD_SLIDER(Удлинённость)
-
-	paneSz->Add( sizer_horizontal, 1, wxEXPAND, 5 );
+	ADD_SLIDER(~, 0, 0, BOOST_PP_SEQ_HEAD(SLIDERS))
+	win_pane_filter->Bind(wxEVT_SIZE, [this, win_pane_filter, static_box_sizer](wxSizeEvent& e)
+	{
+		static_box_sizer->SetDimension(static_box_sizer->GetPosition(), {win_pane_filter->GetSize().GetWidth()/4, static_box_sizer->GetSize().GetHeight()});
+	});
+	BOOST_PP_SEQ_FOR_EACH_I(ADD_SLIDER, 1, BOOST_PP_SEQ_POP_FRONT(SLIDERS))
 
 	win_pane_filter->SetSizer(paneSz);
 	paneSz->SetSizeHints(win_pane_filter);

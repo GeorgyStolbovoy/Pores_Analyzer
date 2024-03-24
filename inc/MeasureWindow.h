@@ -2,6 +2,7 @@
 
 #include "ImageWindow.h"
 #include "MorphologyWindow.h"
+#include "StatisticWindow.h"
 #include "DoubleSlider.h"
 #include <wx/slider.h>
 #include <wx/tglbtn.h>
@@ -42,9 +43,17 @@ public:
 		>
 	>;
 
-	static wxWindowID collapse_morphology_id, collapse_color_id, collapse_filter_id, slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id, toggle_color_id, toggle_background_id, toggle_boundaries_id;
+#define NAME_SLIDER(z, data, s) m_dslider_##s
+#define ID_SLIDER(z, data, s) dslider_##s##_id
+#define SLIDERS BOOST_PP_SEQ_TRANSFORM(NAME_SLIDER, ~, PORES_CALCULATING_PARAMS)
+#define SLIDERS_IDS BOOST_PP_SEQ_TRANSFORM(ID_SLIDER, ~, PORES_CALCULATING_PARAMS)
+	static wxWindowID collapse_morphology_id, collapse_color_id, collapse_filter_id, slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id,
+		toggle_color_id, toggle_background_id, toggle_boundaries_id, BOOST_PP_SEQ_ENUM(SLIDERS_IDS);
 	MorphologyWindow *m_window_erosion, *m_window_dilation;
 	wxSlider *m_slider_algorithm, *m_slider_transparency;
+#define ADD_POINTER(z, data, s) *s
+	DoubleSlider BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
+#undef ADD_POINTER
 	wxToggleButton *m_toggle_colorize, *m_toggle_background, *m_toggle_boundaries;
 	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
 	wxColourPickerCtrl* m_colorpicker_boundaries;

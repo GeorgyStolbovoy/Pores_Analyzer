@@ -6,6 +6,7 @@
 #include <wx/aui/aui.h>
 #include <wx/graphics.h>
 #include <array>
+#include <boost/preprocessor.hpp>
 
 class Frame;
 struct MeasureWindow;
@@ -34,7 +35,14 @@ class StatisticWindow : public wxWindow
 	struct PoresStatisticList : wxListCtrl
 	{
 #define PORES_PARAMS ID, SQUARE, PERIMETER, DIAMETER, CENTROID_X, CENTROID_Y, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
-		using row_t = std::tuple<uint32_t, float, float, float, float, float, float, float, float, float, float, float, float, float>;
+#define STRINGSIZE_NAME(z, data, name) #name
+#define PORES_PARAMS_NAMES BOOST_PP_SEQ_TRANSFORM(STRINGSIZE_NAME, ~, BOOST_PP_VARIADIC_TO_SEQ( \
+			№, Площадь, Периметр, Эквивалентный диаметр, Координата X, Координата Y, Длина, Ширина, Высота проекции, Ширина проекции, Наибольший диаметр, Наименьший диаметр, Фактор формы, Удлинённость))
+		static_assert(BOOST_PP_VARIADIC_SIZE(PORES_PARAMS) == BOOST_PP_SEQ_SIZE(PORES_PARAMS_NAMES));
+#define PORES_CALCULATING_PARAMS BOOST_PP_SEQ_POP_FRONT(BOOST_PP_VARIADIC_TO_SEQ(PORES_PARAMS))
+#define PARAMS_TYPE(z, data, p) float
+		using row_t = std::tuple<uint32_t, BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(PARAMS_TYPE, ~, PORES_CALCULATING_PARAMS))>;
+#undef PARAMS_TYPE
 		using container_t = std::vector<row_t>;
 		enum : uint8_t {PORES_PARAMS};
 		container_t container;
@@ -77,12 +85,13 @@ class StatisticWindow : public wxWindow
 
 	struct SettingsWindow : wxWindow
 	{
-		wxCheckBox *m_checkBox_color, *m_checkBox_deleted;
-		static wxWindowID checkBox_color_id, checkBox_deleted_id;
+		wxCheckBox *m_checkBox_color, *m_checkBox_deleted, *m_checkBox_filtered;
+		static wxWindowID checkBox_color_id, checkBox_deleted_id, checkBox_filtered_id;
 
 		SettingsWindow(wxWindow* parent);
 		void OnDistributionColor(wxCommandEvent& event);
 		void OnShowDeleted(wxCommandEvent& event);
+		void OnShowFiltered(wxCommandEvent& event);
 
 	private:
 		StatisticWindow* parent_statwindow;

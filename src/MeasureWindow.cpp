@@ -1,6 +1,7 @@
 #include "MeasureWindow.h"
 #include "Frame.h"
 
+#define DECLARE_SLIDER_ID(z, data, s) MeasureWindow::s = wxWindow::NewControlId()
 wxWindowID
 	MeasureWindow::collapse_morphology_id = wxWindow::NewControlId(3),
 	MeasureWindow::collapse_color_id = MeasureWindow::collapse_morphology_id + 1,
@@ -12,7 +13,8 @@ wxWindowID
 	MeasureWindow::button_dilation_id = wxWindow::NewControlId(),
 	MeasureWindow::toggle_color_id = wxWindow::NewControlId(),
 	MeasureWindow::toggle_background_id = wxWindow::NewControlId(),
-	MeasureWindow::toggle_boundaries_id = wxWindow::NewControlId();
+	MeasureWindow::toggle_boundaries_id = wxWindow::NewControlId(),
+	BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(DECLARE_SLIDER_ID, ~, SLIDERS_IDS));
 
 wxBEGIN_EVENT_TABLE(MeasureWindow, wxWindow)
     EVT_COMMAND_SCROLL_CHANGED(MeasureWindow::slider_algorithm_id, MeasureWindow::OnChangeDifference)
