@@ -59,7 +59,7 @@ public:
 	wxColourPickerCtrl* m_colorpicker_boundaries;
 
 	pores_container m_pores;
-	std::set<uint32_t> m_deleted_pores, m_selected_pores;
+	std::set<uint32_t> m_deleted_pores, m_filtered_pores, m_selected_pores;
 	std::unordered_set<coord_t, boost::hash<coord_t>> m_boundary_pixels;
 	std::vector<uint8_t> m_colors;
 	std::ptrdiff_t height, width;

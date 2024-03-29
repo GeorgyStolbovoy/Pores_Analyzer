@@ -18,8 +18,18 @@ constexpr decltype(auto) conditional(A&& a, B&& b)
 		return std::forward<B>(b);
 }
 
-struct get_result
+template <std::size_t S, class R, class... As>
+struct Invoker
 {
+	uint8_t bytes_[S];
+	R(*invoker)(uint8_t*, As...);
+
+	template <class F>
+	Invoker(F&& f) : invoker{[](uint8_t* bytes, As... args){return (*reinterpret_cast<F*>(bytes))(args...);}}
+	{
+		new(bytes_) F(f);
+	}
+	R operator()(As... args) {return invoker(bytes_, args...);}
 };
 
 template <class R, class Tuple, uint8_t index = 0>

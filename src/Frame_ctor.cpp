@@ -86,5 +86,5 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	Centre( wxBOTH );
 	SetIcon({wxT("wxICON_AAA")});
 
-	m_statistic->m_aui->InitPanesPositions(m_statistic->GetSize());
+	//m_statistic->m_aui->InitPanesPositions(m_statistic->GetSize());
 }

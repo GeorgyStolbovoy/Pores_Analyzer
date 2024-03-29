@@ -16,7 +16,16 @@ class StatisticWindow : public wxWindow
 	struct Aui : wxAuiManager
 	{
 		Aui(wxWindow* parent) : wxAuiManager(parent, wxAUI_MGR_TRANSPARENT_HINT | wxAUI_MGR_HINT_FADE | wxAUI_MGR_NO_VENETIAN_BLINDS_FADE | wxAUI_MGR_LIVE_RESIZE) {}
-        void InitPanesPositions(wxSize size);
+        void SetPanesPositions(wxSizeEvent& e);
+		template <auto EvtHandler>
+		void SavePanePosition(wxMouseEvent& event);
+		void OnPaneMinimaze(wxAuiManagerEvent& e);
+
+	private:
+		int sashSize = m_art->GetMetric(wxAUI_DOCKART_SASH_SIZE);
+		std::pair<float, float> panes_positions{0.5f, 0.5f};
+
+		wxDECLARE_EVENT_TABLE();
 	};
 
 	struct CommonStatisticList : wxListCtrl
@@ -60,6 +69,10 @@ class StatisticWindow : public wxWindow
 		void deselect_all();
 		void on_pore_deleted(uint32_t pore_id);
 		void on_pore_recovered(uint32_t pore_id);
+		uint32_t item_to_id(MeasureWindow* measure, long item);
+		template <bool is_item_to_id>
+		auto get_converter(MeasureWindow* measure);
+		long id_to_item(MeasureWindow* measure, uint32_t id);
 		void set_columns_width();
 
 	private:

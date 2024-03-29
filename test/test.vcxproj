@@ -74,22 +74,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>bin\$(Platform)_$(Configuration)\</OutDir>
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
-    <IncludePath>$(BOOST_DIR);$(IncludePath)</IncludePath>
+    <IncludePath>..\inc;$(BOOST_DIR);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>bin\$(Platform)_$(Configuration)\</OutDir>
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
-    <IncludePath>$(BOOST_DIR);$(IncludePath)</IncludePath>
+    <IncludePath>..\inc;$(BOOST_DIR);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>bin\$(Platform)_$(Configuration)\</OutDir>
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
-    <IncludePath>$(BOOST_DIR);$(IncludePath)</IncludePath>
+    <IncludePath>..\inc;$(BOOST_DIR);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>bin\$(Platform)_$(Configuration)\</OutDir>
     <IntDir>build\$(Platform)_$(Configuration)\</IntDir>
-    <IncludePath>$(BOOST_DIR);$(IncludePath)</IncludePath>
+    <IncludePath>..\inc;$(BOOST_DIR);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

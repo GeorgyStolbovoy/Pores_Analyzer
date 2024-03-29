@@ -131,7 +131,6 @@ void DoubleSlider::OnPaint(wxPaintEvent& event)
 		auto [ph_width, ph_height] = fit_text<false>(gc.get(), text_placeholder, label_width);
 		gc->DrawText(text_placeholder, label_width - ph_width, y_offset - ph_height/2);
 		gc->DrawText(text_placeholder, w - label_width, y_offset - ph_height/2);
-		std::tie(ph_width, ph_height) = fit_text<false>(gc.get(), text_placeholder, margin);
 		double offset = std::max(ph_width, label_width);
 		min_slider_path.AddRectangle(x_min - offset, y_offset - 35, offset, 15);
 		max_slider_path.AddRectangle(x_max, y_offset - 35, offset, 15);
@@ -173,6 +172,7 @@ void DoubleSlider::OnPaint(wxPaintEvent& event)
 			draw_max_slider();
 		}
 
+		std::tie(ph_width, ph_height) = fit_text<false>(gc.get(), text_placeholder, margin);
 		gc->DrawText(text_placeholder, x_min - ph_width - (offset - ph_width)/2, y_offset - 35 + (15 - ph_height)/2);
 		gc->DrawText(text_placeholder, x_max + (offset - ph_width)/2, y_offset - 35 + (15 - ph_height)/2);
 	}
@@ -286,22 +286,30 @@ std::pair<double, double> DoubleSlider::fit_text(wxGraphicsContext* gc, std::con
 	if constexpr (format_number)
 		while (text_width > max_width)
 		{
-			if (int pos = text.Find('.'); pos != wxNOT_FOUND)
+			font.SetPointSize(--initial_size);
+			gc->SetFont(font, {0ul});
+			gc->GetTextExtent(text, &text_width, &text_height);
+			if (text_width > max_width)
 			{
-				text.RemoveLast();
-				if (pos == text.size()-1) [[unlikely]]
-					text.RemoveLast();
+				if (initial_size <= 6) [[unlikely]]
+				{
+					for (int pos = text.Find('.'); pos != wxNOT_FOUND; pos = text.Find('.'))
+					{
+						text.RemoveLast();
+						if (pos == text.size()-1) [[unlikely]]
+						{
+							text.RemoveLast();
+							break;
+						}
+						gc->GetTextExtent(text, &text_width, &text_height);
+						if (text_width <= max_width) [[unlikely]]
+							break;
+					}
+					break;
+				}
 			}
 			else
-			{
-				do
-				{
-					font.SetPointSize(--initial_size);
-					gc->SetFont(font, {0ul});
-					gc->GetTextExtent(text, &text_width, &text_height);
-				} while (text_height > max_width);
 				break;
-			}
 		}
 	else
 		while (text_width > max_width)
