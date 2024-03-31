@@ -54,7 +54,7 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	wxBoxSizer* bSizer_imageControl = new wxBoxSizer( wxVERTICAL );
 
-	m_image = new ImageWindow(this);
+	m_image = new ImageWindow();
 	bSizer_imageControl->Add( m_image, 0, wxALL|wxEXPAND, 5 );
 
 	wxStaticLine* m_staticline1 = new wxStaticLine( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL );
@@ -68,7 +68,7 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	wxBoxSizer* sizer_analysis = new wxBoxSizer( wxVERTICAL );
 
-	m_measure = new MeasureWindow(this);
+	m_measure = new MeasureWindow();
 
 	sizer_analysis->Add(m_measure, 0, wxALL|wxEXPAND, 5);
 

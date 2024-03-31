@@ -20,7 +20,7 @@ wxBEGIN_EVENT_TABLE(ImageWindow, wxWindow)
     EVT_TIMER(wxID_ANY, ImageWindow::OnTimer)
 wxEND_EVENT_TABLE()
 
-ImageWindow::ImageWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE), parent_frame(static_cast<Frame*>(parent))
+ImageWindow::ImageWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE)
 {
     SetMinSize(wxSize{800, 600});
     SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -97,7 +97,7 @@ void ImageWindow::OnPaint(wxPaintEvent& event)
         if (!marked_image.IsOk())
         {
 	        ptrdiff_t w = image.width(), h = image.height();
-            MeasureWindow* measure = parent_frame->m_measure;
+            MeasureWindow* measure = Frame::frame->m_measure;
             uint8_t transparency = nearest_integer<uint8_t>(255 * float(measure->m_slider_transparency->GetValue()) / 100);
             std::unique_ptr<unsigned char[]> bm_buf{new unsigned char[w*h*3]{}};
             wxMemoryDC mem_dc;
@@ -251,7 +251,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     case State::SELECTING:
     {
         bool alt_down = event.AltDown();
-        MeasureWindow* measure = parent_frame->m_measure;
+        MeasureWindow* measure = Frame::frame->m_measure;
         if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(
             MeasureWindow::coord_t{nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio) - 1, nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio) - 1}
         ), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
@@ -265,15 +265,15 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
                 {
                     std::memset(m_sel_session.value().alpha, 0, m_sel_session.value().bufsize);
                     measure->m_selected_pores.clear();
-                    parent_frame->m_statistic->pores_statistic_list->deselect_all();
+                    Frame::frame->m_statistic->pores_statistic_list->deselect_all();
                 }
                 m_sel_session.value().select(measure, find_it->first);
-                parent_frame->m_statistic->pores_statistic_list->select_item(find_it->first);
+                Frame::frame->m_statistic->pores_statistic_list->select_item(find_it->first);
             }
             else if (alt_down && already_selected)
             {
                 m_sel_session.value().deselect(measure, find_it->first);
-                parent_frame->m_statistic->pores_statistic_list->deselect_item(find_it->first);
+                Frame::frame->m_statistic->pores_statistic_list->deselect_item(find_it->first);
                 if (measure->m_selected_pores.empty()) [[unlikely]]
                     m_sel_session = std::nullopt;
             }
@@ -284,7 +284,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
         {
             m_sel_session = std::nullopt;
             measure->m_selected_pores.clear();
-            parent_frame->m_statistic->pores_statistic_list->deselect_all();
+            Frame::frame->m_statistic->pores_statistic_list->deselect_all();
         }
         else
 			break;
@@ -294,7 +294,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     }
     case State::DELETING:
 	{
-        MeasureWindow* measure = parent_frame->m_measure;
+        MeasureWindow* measure = Frame::frame->m_measure;
         if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{
             	nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)
         }), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && !measure->m_deleted_pores.contains(find_it->first))
@@ -304,11 +304,11 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
             if (measure->m_selected_pores.contains(find_it->first))
             {
 	            m_sel_session.value().deselect(measure, find_it->first);
-                parent_frame->m_statistic->pores_statistic_list->deselect_item(find_it->first);
+                Frame::frame->m_statistic->pores_statistic_list->deselect_item(find_it->first);
 	            if (measure->m_selected_pores.empty()) [[unlikely]]
 	                m_sel_session = std::nullopt;
             }
-            parent_frame->m_statistic->pores_statistic_list->on_pore_deleted(find_it->first);
+            Frame::frame->m_statistic->pores_statistic_list->on_pore_deleted(find_it->first);
             Refresh();
             Update();
         }
@@ -316,13 +316,13 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
     }
     case State::RECOVERING:
     {
-        MeasureWindow* measure = parent_frame->m_measure;
+        MeasureWindow* measure = Frame::frame->m_measure;
         if (auto find_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{
             nearest_integer<int>(scale_center.x + (event.GetX() - GetSize().GetWidth()/2.0f)/scale_ratio), nearest_integer<int>(scale_center.y + (event.GetY() - GetSize().GetHeight()/2.0f)/scale_ratio)
         }), end_it = measure->m_pores.get<MeasureWindow::tag_hashset>().end(); find_it != end_it && measure->m_deleted_pores.contains(find_it->first))
         {
             m_rec_background.value().recover(measure, find_it->first);
-            parent_frame->m_statistic->pores_statistic_list->on_pore_recovered(find_it->first);
+            Frame::frame->m_statistic->pores_statistic_list->on_pore_recovered(find_it->first);
             Refresh();
             Update();
         }
@@ -443,7 +443,7 @@ void ImageWindow::ApplyHistogram(Histogram_t& hist)
     auto src_view = gil::view(image_source), view = gil::view(image);
     for (auto src_it = src_view.begin(), src_end = src_view.end(), dst_it = view.begin(), dst_end = view.end(); src_it != src_end; ++src_it, ++dst_it)
         *dst_it = histogram[*src_it];
-    parent_frame->m_measure->NewMeasure(view);
+    Frame::frame->m_measure->NewMeasure(view);
     marked_image = wxNullImage;
     m_sel_session = std::nullopt;
     Refresh();

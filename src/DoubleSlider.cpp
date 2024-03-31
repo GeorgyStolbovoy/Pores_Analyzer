@@ -3,7 +3,7 @@
 #include <memory>
 #include <charconv>
 
-wxBEGIN_EVENT_TABLE(DoubleSlider, wxWindow)
+wxBEGIN_EVENT_TABLE_TEMPLATE1(DoubleSlider, wxWindow, Callable)
 	EVT_PAINT(DoubleSlider::OnPaint)
 	EVT_MOTION(DoubleSlider::OnMouseMove)
 	EVT_LEFT_DOWN(DoubleSlider::OnMouseLeftDown)
@@ -12,33 +12,40 @@ wxBEGIN_EVENT_TABLE(DoubleSlider, wxWindow)
 	EVT_MOUSE_CAPTURE_LOST(DoubleSlider::OnCaptureLost)
 wxEND_EVENT_TABLE()
 
-const wxString DoubleSlider::text_placeholder{wxT("N/A")};
+const wxString text_placeholder{wxT("N/A")};
 constexpr double slider_h = 4.0, y_offset = 36.0, margin = 40.0, label_width = 25.0;
 
-DoubleSlider::DoubleSlider(wxWindow* parent) : wxWindow(parent, wxID_ANY)
+template <class Callback>
+DoubleSlider<Callback>::DoubleSlider(wxWindow* parent, Callback&& callback_min, Callback&& callback_max) requires std::is_invocable_r_v<void, Callback, float>
+	: wxWindow(parent, wxID_ANY), on_min_change(std::forward<Callback>(callback_min)), on_max_change(std::forward<Callback>(callback_max))
 {
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	SetMinSize({150, 47});
 }
 
-void DoubleSlider::set_values(float min_, float max_)
+template <class Callback>
+void DoubleSlider<Callback>::set_values(float min_, float max_)
 {
 	if (min_ <= max_)
 	{
 		min = min_;
 		max = max_;
+		min_pos = 0.0f;
+		max_pos = 1.0f;
 		active = true;
 	}
 }
 
-std::pair<float, float> DoubleSlider::get_values()
+template <class Callback>
+std::pair<float, float> DoubleSlider<Callback>::get_values()
 {
 	assert(active);
 	int width = GetSize().GetWidth();
 	return {(width - 2*margin)*min_pos + margin, (width - 2*margin)*max_pos + margin};
 }
 
-void DoubleSlider::OnPaint(wxPaintEvent& event)
+template <class Callback>
+void DoubleSlider<Callback>::OnPaint(wxPaintEvent& event)
 {
 	wxBufferedPaintDC dc(this);
 	auto [w, h] = GetSize();
@@ -178,7 +185,8 @@ void DoubleSlider::OnPaint(wxPaintEvent& event)
 	}
 }
 
-void DoubleSlider::OnMouseMove(wxMouseEvent& event)
+template <class Callback>
+void DoubleSlider<Callback>::OnMouseMove(wxMouseEvent& event)
 {
 	auto [mx, my] = event.GetPosition();
 	if (!capture)
@@ -245,7 +253,8 @@ void DoubleSlider::OnMouseMove(wxMouseEvent& event)
 	}
 }
 
-void DoubleSlider::OnMouseLeftDown(wxMouseEvent& event)
+template <class Callback>
+void DoubleSlider<Callback>::OnMouseLeftDown(wxMouseEvent& event)
 {
 	CaptureMouse();
 	capture = hover;
@@ -255,18 +264,30 @@ void DoubleSlider::OnMouseLeftDown(wxMouseEvent& event)
 	Update();
 }
 
-void DoubleSlider::OnMouseLeftUp(wxMouseEvent& event)
+template <class Callback>
+void DoubleSlider<Callback>::OnMouseLeftUp(wxMouseEvent& event)
 {
 	if (HasCapture())
 	{
-		capture = nullptr;
-		ReleaseMouse();
-		Refresh();
-		Update();
+		if (wxGraphicsPath* slider = std::exchange(capture, nullptr); capture)
+		{
+			if (slider == &min_slider_path)
+			{
+				;
+			}
+			else
+			{
+				;
+			}
+			ReleaseMouse();
+			Refresh();
+			Update();
+		}
 	}
 }
 
-void DoubleSlider::OnLeave(wxMouseEvent& event)
+template <class Callback>
+void DoubleSlider<Callback>::OnLeave(wxMouseEvent& event)
 {
 	if (std::exchange(hover, nullptr)) [[unlikely]]
 	{
@@ -275,8 +296,8 @@ void DoubleSlider::OnLeave(wxMouseEvent& event)
 	}
 }
 
-template <bool format_number>
-std::pair<double, double> DoubleSlider::fit_text(wxGraphicsContext* gc, std::conditional_t<format_number, wxString, const wxString>& text, const double max_width)
+template <class Callback> template <bool format_number>
+std::pair<double, double> DoubleSlider<Callback>::fit_text(wxGraphicsContext* gc, std::conditional_t<format_number, wxString, const wxString>& text, const double max_width)
 {
 	int initial_size = 10;
 	wxFont font{initial_size, wxFONTFAMILY_ROMAN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_SEMIBOLD};

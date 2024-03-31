@@ -41,12 +41,12 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 		{
 			if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
 			{
-				parent_frame->m_image->m_sel_session.value().deselect(this, id_to_delete);
-				parent_frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
+				Frame::frame->m_image->m_sel_session.value().deselect(this, id_to_delete);
+				Frame::frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
 				if (m_selected_pores.empty())
-					parent_frame->m_image->m_sel_session = std::nullopt;
+					Frame::frame->m_image->m_sel_session = std::nullopt;
 			}
-			parent_frame->m_statistic->pores_statistic_list->on_pore_deleted(id_to_delete);
+			Frame::frame->m_statistic->pores_statistic_list->on_pore_deleted(id_to_delete);
 		}
 		else
 			return;
@@ -54,7 +54,7 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 	else
 	{
 		if (m_deleted_pores.erase(id_to_delete) > 0)
-			parent_frame->m_statistic->pores_statistic_list->on_pore_recovered(id_to_delete);
+			Frame::frame->m_statistic->pores_statistic_list->on_pore_recovered(id_to_delete);
 		else
 			return;
 	}
@@ -70,7 +70,7 @@ void MeasureWindow::OnChangeColor(wxCommandEvent& event)
 
 void MeasureWindow::OnChangeDifference(wxScrollEvent& event)
 {
-	if (auto view = gil::view(parent_frame->m_image->image); !view.empty())
+	if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
 	{
 		Measure(view.xy_at(0, 0));
 		update_image<true>();
@@ -101,7 +101,7 @@ void MeasureWindow::OnCollapse(wxCollapsiblePaneEvent& event)
 		pane_sizer->Detach(pane);
 		collapses_sizer->Insert(pane->GetId() - collapse_morphology_id, pane, 1, wxEXPAND, 5);
 	}
-	parent_frame->Layout();
+	Frame::frame->Layout();
 }
 
 void MeasureWindow::OnErosion(wxCommandEvent& event)
@@ -368,7 +368,7 @@ uint32_t MeasureWindow::get_biggest_pore_id()
 template <bool reset_selection>
 void MeasureWindow::update_image()
 {
-	ImageWindow* iw = parent_frame->m_image;
+	ImageWindow* iw = Frame::frame->m_image;
 	iw->marked_image = wxNullImage;
 	if constexpr (reset_selection)
 		iw->m_sel_session = std::nullopt;
@@ -408,5 +408,11 @@ void MeasureWindow::after_measure()
 			i = pore_it->first;
 	}
 
-	parent_frame->m_statistic->CollectStatistic();
+	Frame::frame->m_statistic->CollectStatistic();
+}
+
+template <uint8_t ParamNumber, bool is_min_or_max>
+void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float value)
+{
+	
 }

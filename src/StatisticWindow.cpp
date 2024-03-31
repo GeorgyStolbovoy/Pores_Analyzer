@@ -95,7 +95,7 @@ wxBEGIN_EVENT_TABLE(StatisticWindow, wxWindow)
 wxEND_EVENT_TABLE()
 
 StatisticWindow::StatisticWindow(wxWindow* parent)
-	: wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN), parent_frame(static_cast<Frame*>(parent))
+	: wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
 {
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	
@@ -141,7 +141,7 @@ StatisticWindow::StatisticWindow(wxWindow* parent)
 
 void StatisticWindow::CollectStatistic()
 {
-	MeasureWindow* measure = parent_frame->m_measure;
+	MeasureWindow* measure = Frame::frame->m_measure;
 	bool collect_deleted = settings_window->m_checkBox_deleted->IsChecked(), collect_filtered = settings_window->m_checkBox_filtered->IsChecked();
 	uint32_t pores_square = 0;
 	double perimeter_mean = 0, diameter_mean = 0, centroid_x_mean = 0, centroid_y_mean = 0, lenght_oy_mean = 0, width_ox_mean = 0, shape_mean = 0, elongation_mean = 0;
@@ -364,9 +364,9 @@ uint32_t StatisticWindow::PoresStatisticList::item_to_id(MeasureWindow* measure,
 {
 	uint32_t ret = item - 3;
 	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() && !measure->m_deleted_pores.empty())
-		ret += std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(item));
+		ret += std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(std::get<ID>(container[item])));
 	if (!parent_statwindow->settings_window->m_checkBox_filtered->IsChecked() && !measure->m_filtered_pores.empty())
-		ret += std::distance(measure->m_filtered_pores.begin(), measure->m_filtered_pores.lower_bound(item));
+		ret += std::distance(measure->m_filtered_pores.begin(), measure->m_filtered_pores.lower_bound(std::get<ID>(container[item])));
 	return ret;
 }
 
@@ -474,11 +474,11 @@ void StatisticWindow::PoresStatisticList::OnSelection(wxListEvent& event)
 	long item_index = event.GetIndex();
 	if (item_index > 3)
 	{
-		MeasureWindow* measure = parent_statwindow->parent_frame->m_measure;
-		uint32_t pore_id = item_to_id(measure, std::get<ID>(container[item_index]));
+		MeasureWindow* measure = Frame::frame->m_measure;
+		uint32_t pore_id = item_to_id(measure, item_index);
 		if (!measure->m_deleted_pores.contains(pore_id) && !measure->m_filtered_pores.contains(pore_id))
 		{
-			ImageWindow* image = parent_statwindow->parent_frame->m_image;
+			ImageWindow* image = Frame::frame->m_image;
 			if (!image->m_sel_session.has_value())
 				image->m_sel_session.emplace(image);
 			image->m_sel_session.value().select(measure, pore_id);
@@ -495,27 +495,28 @@ void StatisticWindow::PoresStatisticList::OnDeselection(wxListEvent& event)
 {
 	if (dont_affect)
 		return;
-	std::vector<long> selected;
+	MeasureWindow* measure = Frame::frame->m_measure;
+	std::vector<uint32_t> selected;
 	selected.reserve(GetSelectedItemCount());
-	auto item2id_converter = get_converter<true>(parent_statwindow->parent_frame->m_measure);
+	auto item2id_converter = get_converter<true>(measure);
 	for (long item = GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED); item != -1; item = GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED))
 		selected.push_back(item2id_converter(item));
 	bool do_refresh = false;
-	for (auto it = parent_statwindow->parent_frame->m_measure->m_selected_pores.begin(), end = parent_statwindow->parent_frame->m_measure->m_selected_pores.end(); it != end;)
+	for (auto it = measure->m_selected_pores.begin(), end = measure->m_selected_pores.end(); it != end;)
 	{
 		uint32_t id = *it++;
-		if (auto find_it = std::lower_bound(selected.begin(), selected.end(), long(id)); find_it == selected.end() || *find_it != id)
+		if (auto find_it = std::lower_bound(selected.begin(), selected.end(), id); find_it == selected.end() || *find_it != id)
 		{
-			parent_statwindow->parent_frame->m_image->m_sel_session.value().deselect(parent_statwindow->parent_frame->m_measure, id);
+			Frame::frame->m_image->m_sel_session.value().deselect(measure, id);
 			do_refresh = true;
 		}
 	}
 	if (do_refresh)
 	{
-		if (parent_statwindow->parent_frame->m_measure->m_selected_pores.empty())
-			parent_statwindow->parent_frame->m_image->m_sel_session = std::nullopt;
-		parent_statwindow->parent_frame->m_image->Refresh();
-		parent_statwindow->parent_frame->m_image->Update();
+		if (measure->m_selected_pores.empty())
+			Frame::frame->m_image->m_sel_session = std::nullopt;
+		Frame::frame->m_image->Refresh();
+		Frame::frame->m_image->Update();
 	}
 }
 
@@ -529,7 +530,7 @@ void StatisticWindow::PoresStatisticList::OnColumnClick(wxListEvent& event)
 void StatisticWindow::PoresStatisticList::select_item(uint32_t pore_id)
 {
 	dont_affect = true;
-	long item_index = id_to_item(parent_statwindow->parent_frame->m_measure, pore_id);
+	long item_index = id_to_item(Frame::frame->m_measure, pore_id);
 	SetItemState(item_index, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
 	wxRect rect;
 	GetItemRect(0, rect);
@@ -540,7 +541,7 @@ void StatisticWindow::PoresStatisticList::select_item(uint32_t pore_id)
 void StatisticWindow::PoresStatisticList::deselect_item(uint32_t pore_id)
 {
 	dont_affect = true;
-	SetItemState(id_to_item(parent_statwindow->parent_frame->m_measure, pore_id), 0, wxLIST_STATE_SELECTED);
+	SetItemState(id_to_item(Frame::frame->m_measure, pore_id), 0, wxLIST_STATE_SELECTED);
 	dont_affect = false;
 }
 
@@ -555,7 +556,7 @@ void StatisticWindow::PoresStatisticList::deselect_all()
 
 void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 {
-	MeasureWindow* measure = parent_statwindow->parent_frame->m_measure;
+	MeasureWindow* measure = Frame::frame->m_measure;
 	if (parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
 	{
 		wxItemAttr attr;
@@ -592,7 +593,7 @@ void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 
 void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
 {
-	MeasureWindow* measure = parent_statwindow->parent_frame->m_measure;
+	MeasureWindow* measure = Frame::frame->m_measure;
 	container_t::iterator item_iter;
 	if (parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
 	{
@@ -853,10 +854,9 @@ void StatisticWindow::SettingsWindow::OnDistributionColor(wxCommandEvent& event)
 
 void StatisticWindow::SettingsWindow::OnShowDeleted(wxCommandEvent& event)
 {
-	parent_statwindow->pores_statistic_list->attributes.clear();
-	if (MeasureWindow* measure = parent_statwindow->parent_frame->m_measure; event.IsChecked())
+	if (MeasureWindow* measure = Frame::frame->m_measure; event.IsChecked())
 	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [measure](uint32_t id){return measure->m_deleted_pores.contains(id);});
+		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [measure](auto& id_attr){return measure->m_deleted_pores.contains(id_attr.first);});
 		pore_statistic_collector psc(measure, parent_statwindow->pores_statistic_list->container);
 		for (uint32_t id : measure->m_deleted_pores)
 		{
@@ -874,11 +874,12 @@ void StatisticWindow::SettingsWindow::OnShowDeleted(wxCommandEvent& event)
 	}
 	else
 	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [id2item_converter = parent_statwindow->pores_statistic_list->get_converter<false>(measure), &container = parent_statwindow->pores_statistic_list->container, measure, this](uint32_t id) mutable
+		std::erase_if(parent_statwindow->pores_statistic_list->attributes, 
+			[id2item_converter = parent_statwindow->pores_statistic_list->get_converter<false>(measure), &container = parent_statwindow->pores_statistic_list->container, measure, this](auto& id_attr) mutable
 		{
-			if (measure->m_deleted_pores.contains(id))
+			if (measure->m_deleted_pores.contains(id_attr.first))
 			{
-				container.erase(container.begin() + id2item_converter(id));
+				container.erase(container.begin() + id2item_converter(id_attr.first));
 				return true;
 			}
 		});
@@ -890,9 +891,9 @@ void StatisticWindow::SettingsWindow::OnShowDeleted(wxCommandEvent& event)
 
 void StatisticWindow::SettingsWindow::OnShowFiltered(wxCommandEvent& event)
 {
-	if (MeasureWindow* measure = parent_statwindow->parent_frame->m_measure; event.IsChecked())
+	if (MeasureWindow* measure = Frame::frame->m_measure; event.IsChecked())
 	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [measure](uint32_t id){return measure->m_filtered_pores.contains(id);});
+		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [measure](auto& id_attr){return measure->m_filtered_pores.contains(id_attr.first);});
 		pore_statistic_collector psc(measure, parent_statwindow->pores_statistic_list->container);
 		for (uint32_t id : measure->m_filtered_pores)
 		{
@@ -910,11 +911,12 @@ void StatisticWindow::SettingsWindow::OnShowFiltered(wxCommandEvent& event)
 	}
 	else
 	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [id2item_converter = parent_statwindow->pores_statistic_list->get_converter<false>(measure), &container = parent_statwindow->pores_statistic_list->container, measure, this](uint32_t id) mutable
+		std::erase_if(parent_statwindow->pores_statistic_list->attributes, 
+			[id2item_converter = parent_statwindow->pores_statistic_list->get_converter<false>(measure), &container = parent_statwindow->pores_statistic_list->container, measure, this](auto& id_attr) mutable
 		{
-			if (measure->m_filtered_pores.contains(id))
+			if (measure->m_filtered_pores.contains(id_attr.first))
 			{
-				container.erase(container.begin() + id2item_converter(id));
+				container.erase(container.begin() + id2item_converter(id_attr.first));
 				return true;
 			}
 		});

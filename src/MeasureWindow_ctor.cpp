@@ -1,12 +1,13 @@
 #include "MeasureWindow.h"
 #include "Frame.h"
+#include "Utils.h"
 #include <wx/statbox.h>
 #include <wx/button.h>
 #include <wx/choice.h>
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
 
-MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN), parent_frame(static_cast<Frame*>(parent))
+MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
 {
 	wxBoxSizer* sizer_measure = new wxBoxSizer( wxVERTICAL );
 
@@ -138,10 +139,14 @@ MeasureWindow::MeasureWindow(wxWindow *parent) : wxWindow(parent, wxID_ANY, wxDe
 
 	paneSz = new wxBoxSizer( wxVERTICAL );
 
+#define CALLBACK(z, data, p) FilterCallback<StatisticWindow::p, BOOST_PP_IF(data, true, false)>
+
+	using callback_t = Invoker<std::max({1}), void, float>;
+
 #define ADD_SLIDER(z, data, i, s) \
 	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);) \
 	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT(BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS_NAMES)))), wxVERTICAL); \
-	s = new DoubleSlider(win_pane_filter); \
+	s = new DoubleSlider(win_pane_filter, callback_t{CALLBACK(~, 1, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS)))}, callback_t{CALLBACK(~, 0, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS)))}); \
 	static_box_sizer->Add(s, 1, wxALL|wxEXPAND, 5); \
 	sizer_horizontal->Add(static_box_sizer, data, wxEXPAND, 5); \
 	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), paneSz->Add(sizer_horizontal, 1, wxEXPAND, 5);)
