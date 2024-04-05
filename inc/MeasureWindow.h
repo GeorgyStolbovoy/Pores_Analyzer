@@ -3,7 +3,8 @@
 #include "ImageWindow.h"
 #include "MorphologyWindow.h"
 #include "StatisticWindow.h"
-#include "DoubleSlider.h"
+#include "DoubleSlider.hpp"
+#include "Utils.h"
 #include <wx/slider.h>
 #include <wx/tglbtn.h>
 #include <wx/collpane.h>
@@ -21,7 +22,6 @@
 #include <boost/container_hash/hash.hpp>
 
 namespace mi = boost::multi_index;
-class Frame;
 
 struct MeasureWindow : wxWindow
 {
@@ -32,7 +32,15 @@ private:
 	using locator_t = ImageWindow::Image_t::view_t::xy_locator;
 	using inspecting_pixel = std::pair<locator_t, coord_t>;
 	struct pore_comp_t {bool operator()(const coord_t& lhs, const coord_t& rhs) const {return lhs.first == rhs.first && lhs.second == rhs.second;}};
+	
+	template <uint8_t ParamNumber, bool is_min_or_max>
+	struct FilterCallback {void operator()(float min_value, float max_value);};
 
+#define FILTER_CALLBACK(z, data, p) FilterCallback<StatisticWindow::pores_statistic_list_t::p, BOOST_PP_IF(data, true, false)>
+#define FILTER_CALLBACK_SIZE(z, data, p) sizeof(FILTER_CALLBACK(~, data, p))
+	using filter_callback_min_t = Invoker<std::max({BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(FILTER_CALLBACK_SIZE, 1, PORES_CALCULATING_PARAMS))}), void, float, float>;
+	using filter_callback_max_t = Invoker<std::max({BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(FILTER_CALLBACK_SIZE, 0, PORES_CALCULATING_PARAMS))}), void, float, float>;
+#undef FILTER_CALLBACK_SIZE
 public:
 	struct tag_multiset{}; struct tag_hashset{}; struct tag_sequenced{};
 	using pores_container = boost::multi_index_container<
@@ -52,7 +60,7 @@ public:
 	MorphologyWindow *m_window_erosion, *m_window_dilation;
 	wxSlider *m_slider_algorithm, *m_slider_transparency;
 #define ADD_POINTER(z, data, s) *s
-	DoubleSlider BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
+	DoubleSlider<filter_callback_min_t, filter_callback_max_t> BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
 #undef ADD_POINTER
 	wxToggleButton *m_toggle_colorize, *m_toggle_background, *m_toggle_boundaries;
 	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
@@ -62,10 +70,10 @@ public:
 	std::set<uint32_t> m_deleted_pores, m_filtered_pores, m_selected_pores;
 	std::unordered_set<coord_t, boost::hash<coord_t>> m_boundary_pixels;
 	std::vector<uint8_t> m_colors;
-	std::ptrdiff_t height, width;
+	std::ptrdiff_t height = 0, width = 0;
 	uint32_t pores_count;
 
-	MeasureWindow(wxWindow *parent);
+	MeasureWindow();
 	void NewMeasure(ImageWindow::Image_t::view_t view);
 	void OnChangeDifference(wxScrollEvent& event);
 	void OnChangeTransparency(wxScrollEvent& event);
@@ -98,7 +106,6 @@ private:
 	void after_measure();
 
 private:
-	Frame* parent_frame;
 	wxSizer *collapses_sizer, *pane_sizer;
 
 	wxDECLARE_EVENT_TABLE();

@@ -7,8 +7,6 @@
 #include <boost/gil.hpp>
 
 namespace gil = boost::gil;
-class Frame;
-struct MeasureWindow;
 
 struct ImageWindow : wxWindow
 {
@@ -22,15 +20,15 @@ struct ImageWindow : wxWindow
 
 		SelectionSession(ImageWindow* owner);
 		SelectionSession(SelectionSession& other) = delete;
-		void select(MeasureWindow* measure, uint32_t pore_id);
-		void deselect(MeasureWindow* measure, uint32_t pore_id);
+		void select(uint32_t pore_id);
+		void deselect(uint32_t pore_id);
 		~SelectionSession() {delete[] selected_pores; delete[] alpha;}
 	};
 	struct RecoveringBackground
 	{
 		unsigned char *background, *alpha;
 		RecoveringBackground(std::size_t bufsize);
-		void recover(MeasureWindow* measure, uint32_t pore_id);
+		void recover(uint32_t pore_id);
 		~RecoveringBackground() {delete[] background; delete[] alpha;}
 	};
 
@@ -43,7 +41,7 @@ struct ImageWindow : wxWindow
 	std::optional<SelectionSession> m_sel_session;
 	std::optional<RecoveringBackground> m_rec_background;
 
-	ImageWindow(wxWindow *parent);
+	ImageWindow();
 	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);
 	void OnMouseMove(wxMouseEvent& event);
@@ -58,7 +56,6 @@ struct ImageWindow : wxWindow
 	void ApplyHistogram(Histogram_t& hist);
 
 private:
-	Frame* parent_frame;
 	Image_t image_source;
 	wxBitmap DCbuffer;
 

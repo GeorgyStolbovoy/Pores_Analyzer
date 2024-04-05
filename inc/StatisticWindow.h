@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Utils.h"
 #include <wx/window.h>
 #include <wx/listctrl.h>
 #include <wx/checkbox.h>
@@ -7,9 +8,6 @@
 #include <wx/graphics.h>
 #include <array>
 #include <boost/preprocessor.hpp>
-
-class Frame;
-struct MeasureWindow;
 
 class StatisticWindow : public wxWindow
 {
@@ -69,16 +67,31 @@ class StatisticWindow : public wxWindow
 		void deselect_all();
 		void on_pore_deleted(uint32_t pore_id);
 		void on_pore_recovered(uint32_t pore_id);
-		uint32_t item_to_id(MeasureWindow* measure, long item);
-		template <bool is_item_to_id>
-		auto get_converter(MeasureWindow* measure);
-		long id_to_item(MeasureWindow* measure, uint32_t id);
+		std::size_t item_to_index(long item) const;
+		long index_to_item(std::size_t index);
+		void set_item_count();
 		void set_columns_width();
+
+#define INDEX_TO_ID(item) (item - 3)
+#define ID_TO_INDEX(id) (id + 3)
+#define CONVERTER_BODY(arg, is_item_to_index, consider_deleted, consider_filtered) \
+			auto ret = arg; \
+			BOOST_PP_EXPR_IF(consider_deleted, \
+				std::ptrdiff_t deleted_before = std::distance(Frame::frame->m_measure->m_deleted_pores.begin(), Frame::frame->m_measure->m_deleted_pores.upper_bound(std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg]))); \
+				ret BOOST_PP_IF(is_item_to_index, +=, -=) deleted_before; \
+				BOOST_PP_EXPR_IF(consider_filtered, arg BOOST_PP_IF(is_item_to_index, +=, -=) deleted_before;) \
+			) \
+			BOOST_PP_EXPR_IF(consider_filtered, \
+				ret BOOST_PP_IF(is_item_to_index, +=, -=) std::distance(Frame::frame->m_measure->m_filtered_pores.begin(), Frame::frame->m_measure->m_filtered_pores.upper_bound(std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg]))); \
+			) \
+			return ret;
+#define GET_CONVERTER(is_item_to_index) GET_STATIC_SWITCHER((std::conditional_t<is_item_to_index, std::size_t, long>), (std::conditional_t<is_item_to_index, long, std::size_t>), CONVERTER_BODY, (is_item_to_index), \
+			(!Frame::frame->m_statistic->settings_window->m_checkBox_deleted->IsChecked() && !Frame::frame->m_measure->m_deleted_pores.empty()), (!Frame::frame->m_statistic->settings_window->m_checkBox_filtered->IsChecked() && !Frame::frame->m_measure->m_filtered_pores.empty()))
 
 	private:
 		StatisticWindow* parent_statwindow;
 
-		void after_changes(MeasureWindow* measure, float pores_square);
+		void after_changes(float pores_square);
 
 		wxDECLARE_EVENT_TABLE();
 	};
@@ -115,19 +128,20 @@ class StatisticWindow : public wxWindow
 	wxDECLARE_EVENT_TABLE();
 
 public:
-	using pores_statistic_container = PoresStatisticList::container_t;
+	using pores_statistic_list_t = PoresStatisticList;
+	using common_statistic_list_t = CommonStatisticList;
 
 	Aui* m_aui;
 	CommonStatisticList* common_statistic_list;
 	PoresStatisticList* pores_statistic_list;
 	DistributionWindow* distribution_window;
 	SettingsWindow* settings_window;
-	Frame* parent_frame;
 
 	uint32_t num_considered = 0;
 
-	StatisticWindow(wxWindow* parent);
+	StatisticWindow();
 	~StatisticWindow() {delete m_aui;}
+	void collect_statistic_for_pore(uint32_t id);
 	void CollectStatistic();
 	void OnPaint(wxPaintEvent& event);
 };

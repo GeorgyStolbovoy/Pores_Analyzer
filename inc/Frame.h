@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FRAME_H
+#define FRAME_H
 
 #include "ImageWindow.h"
 #include "CorrectionWindow.h"
@@ -10,6 +11,8 @@
 class Frame : public wxFrame
 {
 public:
+	static Frame* frame;
+
     ImageWindow* m_image;
 	CorrectionWindow* m_curves;
 	MeasureWindow* m_measure;
@@ -28,3 +31,5 @@ public:
 
 	wxDECLARE_EVENT_TABLE();
 };
+
+#endif

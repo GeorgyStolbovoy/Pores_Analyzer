@@ -41,7 +41,7 @@ void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 		{
 			if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
 			{
-				Frame::frame->m_image->m_sel_session.value().deselect(this, id_to_delete);
+				Frame::frame->m_image->m_sel_session.value().deselect(id_to_delete);
 				Frame::frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
 				if (m_selected_pores.empty())
 					Frame::frame->m_image->m_sel_session = std::nullopt;
@@ -409,10 +409,4 @@ void MeasureWindow::after_measure()
 	}
 
 	Frame::frame->m_statistic->CollectStatistic();
-}
-
-template <uint8_t ParamNumber, bool is_min_or_max>
-void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float value)
-{
-	
 }

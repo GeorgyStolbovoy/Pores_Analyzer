@@ -1,4 +1,3 @@
-#include "StatisticWindow.h"
 #include "Frame.h"
 #include "Utils.h"
 #include <wx/dcbuffer.h>
@@ -6,53 +5,6 @@
 #include <charconv>
 
 // Auxiliary
-
-struct pore_statistic_collector
-{
-	using multiset_iterator_t = MeasureWindow::pores_container::index<MeasureWindow::tag_multiset>::type::iterator;
-	using hashset_iterator_t = MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator;
-
-	MeasureWindow* measure;
-	StatisticWindow::pores_statistic_container& container;
-	multiset_iterator_t it, end;
-	hashset_iterator_t tmp_it, end_it;
-	uint32_t square, perimeter, sum_x, sum_y, min_x, max_x, min_y, max_y, lenght_oy, width_ox;
-	float shape, diameter, elongation, centroid_x, centroid_y;
-
-	pore_statistic_collector(MeasureWindow* measure, StatisticWindow::pores_statistic_container& container)
-		: measure(measure), container(container), end(measure->m_pores.get<MeasureWindow::tag_multiset>().end()), end_it(measure->m_pores.get<MeasureWindow::tag_hashset>().end())
-	{}
-	void collect(uint32_t id)
-	{
-		square = 0; perimeter = 0; sum_x = 0; sum_y = 0; min_x = measure->width - 1; max_x = 0; min_y = measure->height - 1; max_y = 0;
-		do
-		{
-			++square;
-			sum_x += it->second.first;
-			sum_y += it->second.second;
-			if (min_x > uint32_t(it->second.first)) [[unlikely]] min_x = it->second.first;
-			if (max_x < uint32_t(it->second.first)) [[unlikely]] max_x = it->second.first;
-			if (min_y > uint32_t(it->second.second)) [[unlikely]] min_y = it->second.second;
-			if (max_y < uint32_t(it->second.second)) [[unlikely]] max_y = it->second.second;
-			if (measure->m_boundary_pixels.contains(it->second)) [[unlikely]]
-			{
-#define INC_IF_BOUNDARY(dx, dy) if (auto tmp_it = measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{it->second.first dx, it->second.second dy}); tmp_it == end_it || tmp_it->first != id) ++perimeter
-				INC_IF_BOUNDARY(-1,);
-				INC_IF_BOUNDARY(,+1);
-				INC_IF_BOUNDARY(+1,);
-				INC_IF_BOUNDARY(,-1);
-			}
-		} while (++it != end && it->first == id);
-		lenght_oy = max_y - min_y + 1;
-		width_ox = max_x - min_x + 1;
-		shape = 4*M_PI*square/(perimeter*perimeter);
-		diameter = std::sqrtf(4*square/M_PI);
-		elongation = 1/shape;
-		centroid_x = sum_x/float(square);
-		centroid_y = sum_y/float(square);
-		container.emplace_back(id, square, perimeter, diameter, centroid_x, centroid_y, 0, 0, lenght_oy, width_ox, 0, 0, shape, elongation);
-	}
-};
 
 // Актуальные вычисляемые параметры
 #define PARAMS_NAMES (SQUARE)(PERIMETER)(DIAMETER)(CENTROID_X)(CENTROID_Y)(LENGTH_OY)(WIDTH_OX)(SHAPE)(ELONGATION)
@@ -94,8 +46,8 @@ wxBEGIN_EVENT_TABLE(StatisticWindow, wxWindow)
 	EVT_PAINT(StatisticWindow::OnPaint)
 wxEND_EVENT_TABLE()
 
-StatisticWindow::StatisticWindow(wxWindow* parent)
-	: wxWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
+StatisticWindow::StatisticWindow()
+	: wxWindow(Frame::frame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
 {
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	
@@ -139,60 +91,110 @@ StatisticWindow::StatisticWindow(wxWindow* parent)
 	m_aui->Update();
 }
 
+void StatisticWindow::collect_statistic_for_pore(uint32_t id)
+{
+	auto it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_multiset>().find(id), end = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+	uint32_t square = 0, perimeter = 0, sum_x = 0, sum_y = 0, min_x = Frame::frame->m_measure->width - 1, max_x = 0, min_y = Frame::frame->m_measure->height - 1, max_y = 0;
+	MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator tmp_it, end_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().end();
+	do
+	{
+		++square;
+		sum_x += it->second.first;
+		sum_y += it->second.second;
+		if (min_x > uint32_t(it->second.first)) [[unlikely]] min_x = it->second.first;
+		if (max_x < uint32_t(it->second.first)) [[unlikely]] max_x = it->second.first;
+		if (min_y > uint32_t(it->second.second)) [[unlikely]] min_y = it->second.second;
+		if (max_y < uint32_t(it->second.second)) [[unlikely]] max_y = it->second.second;
+		if (Frame::frame->m_measure->m_boundary_pixels.contains(it->second)) [[unlikely]]
+		{
+#define INC_IF_BOUNDARY(dx, dy) if (auto tmp_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{it->second.first dx, it->second.second dy}); tmp_it == end_it || tmp_it->first != id) ++perimeter
+			INC_IF_BOUNDARY(-1,);
+			INC_IF_BOUNDARY(,+1);
+			INC_IF_BOUNDARY(+1,);
+			INC_IF_BOUNDARY(,-1);
+		}
+	} while (++it != end && it->first == id);
+	float lenght_oy = max_y - min_y + 1;
+	float width_ox = max_x - min_x + 1;
+	float shape = 4*M_PI*square/(perimeter*perimeter);
+	float diameter = std::sqrtf(4*square/M_PI);
+	float elongation = 1/shape;
+	float centroid_x = sum_x/float(square);
+	float centroid_y = sum_y/float(square);
+	Frame::frame->m_statistic->pores_statistic_list->container.emplace_back(id, square, perimeter, diameter, centroid_x, centroid_y, 0, 0, lenght_oy, width_ox, 0, 0, shape, elongation);
+}
+
 void StatisticWindow::CollectStatistic()
 {
 	MeasureWindow* measure = Frame::frame->m_measure;
-	bool collect_deleted = settings_window->m_checkBox_deleted->IsChecked(), collect_filtered = settings_window->m_checkBox_filtered->IsChecked();
 	uint32_t pores_square = 0;
 	double perimeter_mean = 0, diameter_mean = 0, centroid_x_mean = 0, centroid_y_mean = 0, lenght_oy_mean = 0, width_ox_mean = 0, shape_mean = 0, elongation_mean = 0;
 	uint32_t num_deleted = measure->m_deleted_pores.size(), num_filtered = measure->m_filtered_pores.size();
 	num_considered = measure->pores_count - num_deleted - num_filtered;
-	uint32_t item_count = num_considered + 4;
-	if (collect_deleted)
-		item_count += num_deleted;
-	if (collect_filtered)
-		item_count += num_filtered;
 
 	pores_statistic_list->attributes.clear();
 	pores_statistic_list->container.clear();
-	pores_statistic_list->container.reserve(item_count);
+	pores_statistic_list->container.reserve(measure->pores_count);
 	pores_statistic_list->container.resize(2, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
 	constexpr float fmax = std::numeric_limits<float>::max();
 	pores_statistic_list->container.push_back({0, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax, fmax});
 	pores_statistic_list->container.push_back({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
-	pores_statistic_list->SetItemCount(item_count);
+	pores_statistic_list->set_item_count();
 
-	pore_statistic_collector psc(measure, pores_statistic_list->container);
-	psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin();
-	do
 	{
-		uint32_t id = psc.it->first;
-		if (bool not_deleted = !measure->m_deleted_pores.contains(id), not_filtered = !measure->m_filtered_pores.contains(id); not_deleted && not_filtered || collect_deleted || collect_filtered)
+		auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
+		auto end_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().end(), tmp_it = end_it;
+		do
 		{
-			psc.collect(id);
-			if (not_deleted && not_filtered)
+			uint32_t id = it->first;
+			uint32_t square = 0, perimeter = 0, sum_x = 0, sum_y = 0, min_x = Frame::frame->m_measure->width - 1, max_x = 0, min_y = Frame::frame->m_measure->height - 1, max_y = 0;
+			do
 			{
-				pores_square += psc.square;
-				perimeter_mean += psc.perimeter;
-				diameter_mean += psc.diameter;
-				centroid_x_mean += psc.centroid_x;
-				centroid_y_mean += psc.centroid_y;
-				lenght_oy_mean += psc.lenght_oy;
-				width_ox_mean += psc.width_ox;
-				shape_mean += psc.shape;
-				elongation_mean += psc.elongation;
+				++square;
+				sum_x += it->second.first;
+				sum_y += it->second.second;
+				if (min_x > uint32_t(it->second.first)) [[unlikely]] min_x = it->second.first;
+				if (max_x < uint32_t(it->second.first)) [[unlikely]] max_x = it->second.first;
+				if (min_y > uint32_t(it->second.second)) [[unlikely]] min_y = it->second.second;
+				if (max_y < uint32_t(it->second.second)) [[unlikely]] max_y = it->second.second;
+				if (Frame::frame->m_measure->m_boundary_pixels.contains(it->second)) [[unlikely]]
+				{
+					INC_IF_BOUNDARY(-1,);
+					INC_IF_BOUNDARY(,+1);
+					INC_IF_BOUNDARY(+1,);
+					INC_IF_BOUNDARY(,-1);
+				}
+			} while (++it != end && it->first == id);
+			uint32_t lenght_oy = max_y - min_y + 1;
+			uint32_t width_ox = max_x - min_x + 1;
+			float shape = 4*M_PI*square/(perimeter*perimeter);
+			float diameter = std::sqrtf(4*square/M_PI);
+			float elongation = 1/shape;
+			float centroid_x = sum_x/float(square);
+			float centroid_y = sum_y/float(square);
+			pores_statistic_list->container.emplace_back(id, square, perimeter, diameter, centroid_x, centroid_y, 0, 0, lenght_oy, width_ox, 0, 0, shape, elongation);
+			if (bool not_deleted = !measure->m_deleted_pores.contains(id), not_filtered = !measure->m_filtered_pores.contains(id); not_deleted && not_filtered)
+			{
+				pores_square += square;
+				perimeter_mean += perimeter;
+				diameter_mean += diameter;
+				centroid_x_mean += centroid_x;
+				centroid_y_mean += centroid_y;
+				lenght_oy_mean += lenght_oy;
+				width_ox_mean += width_ox;
+				shape_mean += shape;
+				elongation_mean += elongation;
 
-#define PARAMS_VAARGS_PSC psc.square, psc.perimeter, psc.diameter, psc.centroid_x, psc.centroid_y, psc.lenght_oy, psc.width_ox, psc.shape, psc.elongation
+#define COLLECTED_PARAMS square, perimeter, diameter, centroid_x, centroid_y, lenght_oy, width_ox, shape, elongation
 #define SET_MIN_MAX(z, n, flag) \
 					{ \
 						auto& value = std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[flag]); \
-						if (value BOOST_PP_IF(BOOST_PP_EQUAL(flag, 2), >, <) BOOST_PP_VARIADIC_ELEM(n, PARAMS_VAARGS_PSC)) [[unlikely]] \
-							value = BOOST_PP_VARIADIC_ELEM(n, PARAMS_VAARGS_PSC); \
+						if (value BOOST_PP_IF(BOOST_PP_EQUAL(flag, 2), >, <) BOOST_PP_VARIADIC_ELEM(n, COLLECTED_PARAMS)) [[unlikely]] \
+							value = BOOST_PP_VARIADIC_ELEM(n, COLLECTED_PARAMS); \
 					}
-				BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS_VAARGS_PSC), SET_MIN_MAX, 2)
-				BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS_VAARGS_PSC), SET_MIN_MAX, 3)
-#undef PARAMS_VAARGS_PSC
-#undef PARAMS_PSC
+				BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(COLLECTED_PARAMS), SET_MIN_MAX, 2)
+				BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(COLLECTED_PARAMS), SET_MIN_MAX, 3)
+#undef COLLECTED_PARAMS
 			}
 			else
 			{
@@ -203,10 +205,8 @@ void StatisticWindow::CollectStatistic()
 					attr.SetBackgroundColour(0xAAEEEE);
 				pores_statistic_list->attributes.insert({id, attr});
 			}
-		}
-		else
-			psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().lower_bound(id, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;});
-	} while (psc.it != psc.end);
+		} while (it != end);
+	}
 
 	uint32_t all_size = measure->width*measure->height;
 	std::get<CommonStatisticList::PARAM_VALUE>(common_statistic_list->container[0]) = measure->width;
@@ -218,7 +218,7 @@ void StatisticWindow::CollectStatistic()
 
 #define SET_MEAN_DEVIATION(z, n, set_deviation) \
 		{ \
-			auto& mean = std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[0]); \
+			float& mean = std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[0]); \
 			mean = BOOST_PP_VARIADIC_ELEM(n, PARAMS)/float(num_considered); \
 			BOOST_PP_IF(set_deviation, \
 				double deviation = 0; \
@@ -229,6 +229,7 @@ void StatisticWindow::CollectStatistic()
 				std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(pores_statistic_list->container[1]) = 1; \
 			) \
 		}
+
 	if (num_considered > 1)
 	{
 		BOOST_PP_REPEAT(BOOST_PP_VARIADIC_SIZE(PARAMS), SET_MEAN_DEVIATION, 1)
@@ -360,95 +361,52 @@ StatisticWindow::PoresStatisticList::PoresStatisticList(StatisticWindow* parent)
 	EnableAlternateRowColours();
 }
 
-uint32_t StatisticWindow::PoresStatisticList::item_to_id(MeasureWindow* measure, long item)
+std::size_t StatisticWindow::PoresStatisticList::item_to_index(long item) const
 {
-	uint32_t ret = item - 3;
-	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() && !measure->m_deleted_pores.empty())
-		ret += std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(std::get<ID>(container[item])));
-	if (!parent_statwindow->settings_window->m_checkBox_filtered->IsChecked() && !measure->m_filtered_pores.empty())
-		ret += std::distance(measure->m_filtered_pores.begin(), measure->m_filtered_pores.lower_bound(std::get<ID>(container[item])));
-	return ret;
+	std::size_t index = item;
+	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() && !Frame::frame->m_measure->m_deleted_pores.empty())
+	{
+		std::ptrdiff_t deleted_before = std::distance(Frame::frame->m_measure->m_deleted_pores.begin(), Frame::frame->m_measure->m_deleted_pores.upper_bound(std::get<ID>(container[item])));
+		index += deleted_before;
+		item += deleted_before;
+	}
+	if (!parent_statwindow->settings_window->m_checkBox_filtered->IsChecked() && !Frame::frame->m_measure->m_filtered_pores.empty())
+		index += std::distance(Frame::frame->m_measure->m_filtered_pores.begin(), Frame::frame->m_measure->m_filtered_pores.upper_bound(std::get<ID>(container[item])));
+	return index;
 }
 
-long StatisticWindow::PoresStatisticList::id_to_item(MeasureWindow* measure, uint32_t id)
+long StatisticWindow::PoresStatisticList::index_to_item(std::size_t index)
 {
-	long ret = id + 3;
-	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() && !measure->m_deleted_pores.empty())
-		ret -= std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(id));
-	if (!parent_statwindow->settings_window->m_checkBox_filtered->IsChecked() && !measure->m_filtered_pores.empty())
-		ret -= std::distance(measure->m_filtered_pores.begin(), measure->m_filtered_pores.lower_bound(id));
-	return ret;
-}
-
-template <bool is_item_to_id>
-auto StatisticWindow::PoresStatisticList::get_converter(MeasureWindow* measure)
-{
-#define CONVERTER(item_to_id, consider_deleted, consider_filtered) \
-		[measure BOOST_PP_REMOVE_PARENS(BOOST_PP_EXPR_IF(BOOST_PP_AND(item_to_id, BOOST_PP_OR(consider_filtered, consider_deleted)), (, this)))](arg_t converting)->ret_t {return converting BOOST_PP_IF(item_to_id, -, +) 3 \
-			BOOST_PP_EXPR_IF(consider_deleted, BOOST_PP_IF(item_to_id, +, -) std::distance(measure->m_deleted_pores.begin(), measure->m_deleted_pores.lower_bound(BOOST_PP_IF(item_to_id, std::get<ID>(container[converting]), converting)))) \
-			BOOST_PP_EXPR_IF(consider_filtered, BOOST_PP_IF(item_to_id, +, -) std::distance(measure->m_filtered_pores.begin(), measure->m_filtered_pores.lower_bound(BOOST_PP_IF(item_to_id, std::get<ID>(container[converting]), converting))));}
-
-	bool consider_deleted = !parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() && !measure->m_deleted_pores.empty(),
-		consider_filtered = !parent_statwindow->settings_window->m_checkBox_filtered->IsChecked() && !measure->m_filtered_pores.empty();
-	using ret_t = std::conditional_t<is_item_to_id, uint32_t, long>;
-	using arg_t = std::conditional_t<is_item_to_id, long, uint32_t>;
-	if constexpr (is_item_to_id)
+	long item = index;
+	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() && !Frame::frame->m_measure->m_deleted_pores.empty())
 	{
-		using return_t = Invoker<std::max({sizeof(decltype(CONVERTER(1, 1, 1))), sizeof(decltype(CONVERTER(1, 1, 0))), sizeof(decltype(CONVERTER(1, 0, 1))), sizeof(decltype(CONVERTER(1, 0, 0)))}), ret_t, arg_t>;
-		if (consider_deleted && consider_filtered)
-			return return_t{CONVERTER(1, 1, 1)};
-		else if (consider_deleted)
-			return return_t{CONVERTER(1, 1, 0)};
-		else if (consider_filtered)
-			return return_t{CONVERTER(1, 0, 1)};
-		else
-			return return_t{CONVERTER(1, 0, 0)};
+		std::ptrdiff_t deleted_before = std::distance(Frame::frame->m_measure->m_deleted_pores.begin(), Frame::frame->m_measure->m_deleted_pores.upper_bound(std::get<ID>(container[item])));
+		item -= deleted_before;
+		index -= deleted_before;
 	}
-	else
-	{
-		using return_t = Invoker<std::max({sizeof(decltype(CONVERTER(0, 1, 1))), sizeof(decltype(CONVERTER(0, 1, 0))), sizeof(decltype(CONVERTER(0, 0, 1))), sizeof(decltype(CONVERTER(0, 0, 0)))}), ret_t, arg_t>;
-		if (consider_deleted && consider_filtered)
-			return return_t{CONVERTER(0, 1, 1)};
-		else if (consider_deleted)
-			return return_t{CONVERTER(0, 1, 0)};
-		else if (consider_filtered)
-			return return_t{CONVERTER(0, 0, 1)};
-		else
-			return return_t{CONVERTER(0, 0, 0)};
-	}
+	if (!parent_statwindow->settings_window->m_checkBox_filtered->IsChecked() && !Frame::frame->m_measure->m_filtered_pores.empty())
+		item -= std::distance(Frame::frame->m_measure->m_filtered_pores.begin(), Frame::frame->m_measure->m_filtered_pores.upper_bound(std::get<ID>(container[index])));
+	return item;
 }
 
 wxString StatisticWindow::PoresStatisticList::OnGetItemText(long item, long column) const
 {
-#define CASE_NUMBER(value) case value: if (parent_statwindow->num_considered > 0 || attributes.contains(item - 3)) {*std::to_chars(buf, buf + 16, std::get<value>(container[item])).ptr = '\0'; return {buf};} else return {'-'};
-
 	char buf[16];
 	switch (column)
 	{
-	case ID:
-	{
-		switch (item)
+		case ID:
 		{
-		[[unlikely]] case 0: return {wxT("Среднее значение")};
-		[[unlikely]] case 1: return {wxT("Стандартное отклонение")};
-		[[unlikely]] case 2: return {wxT("Минимальное значение")};
-		[[unlikely]] case 3: return {wxT("Максимальное значение")};
-		[[likely]] default:  *std::to_chars(buf, buf + 16, std::get<ID>(container[item])).ptr = '\0'; return {buf};
+			switch (item)
+			{
+			[[unlikely]] case 0: return {wxT("Среднее значение")};
+			[[unlikely]] case 1: return {wxT("Стандартное отклонение")};
+			[[unlikely]] case 2: return {wxT("Минимальное значение")};
+			[[unlikely]] case 3: return {wxT("Максимальное значение")};
+			[[likely]] default:  *std::to_chars(buf, buf + 16, std::get<ID>(container[item_to_index(item)])).ptr = '\0'; return {buf};
+			}
 		}
-	}
-	CASE_NUMBER(SQUARE)
-	CASE_NUMBER(PERIMETER)
-	CASE_NUMBER(DIAMETER)
-	CASE_NUMBER(CENTROID_X)
-	CASE_NUMBER(CENTROID_Y)
-	CASE_NUMBER(LENGTH)
-	CASE_NUMBER(WIDTH)
-	CASE_NUMBER(LENGTH_OY)
-	CASE_NUMBER(WIDTH_OX)
-	CASE_NUMBER(MAX_DIAMETER)
-	CASE_NUMBER(MIN_DIAMETER)
-	CASE_NUMBER(SHAPE)
-	CASE_NUMBER(ELONGATION)
+#define CASE_NUMBER(r, x, value) case value: if (parent_statwindow->num_considered > 0 || item > 3) {*std::to_chars(buf, buf + 16, std::get<value>(container[item_to_index(item)])).ptr = '\0'; return {buf};} else return {'-'};
+		BOOST_PP_SEQ_FOR_EACH(CASE_NUMBER, ~, PORES_CALCULATING_PARAMS)
 	}
 	__assume(false);
 }
@@ -461,7 +419,7 @@ wxItemAttr* StatisticWindow::PoresStatisticList::OnGetItemAttr(long item) const
 		static static_attribute _item;
 		return &_item.item;
 	}
-	else [[likely]] if (auto find_it = attributes.find(item-3); find_it != attributes.end()) [[unlikely]]
+	else [[likely]] if (auto find_it = attributes.find(std::get<ID>(container[item_to_index(item)])); find_it != attributes.end()) [[unlikely]]
 		return const_cast<wxItemAttr*>(&find_it->second);
 	else [[likely]]
 		return wxListCtrl::OnGetItemAttr(item);
@@ -471,18 +429,18 @@ void StatisticWindow::PoresStatisticList::OnSelection(wxListEvent& event)
 {
 	if (dont_affect)
 		return;
-	long item_index = event.GetIndex();
-	if (item_index > 3)
+	long item = event.GetIndex();
+	if (item > 3)
 	{
-		MeasureWindow* measure = Frame::frame->m_measure;
-		uint32_t pore_id = item_to_id(measure, item_index);
-		if (!measure->m_deleted_pores.contains(pore_id) && !measure->m_filtered_pores.contains(pore_id))
+		std::size_t index = item_to_index(item);
+		uint32_t pore_id = std::get<ID>(container[index]);
+		if (!Frame::frame->m_measure->m_deleted_pores.contains(pore_id) && !Frame::frame->m_measure->m_filtered_pores.contains(pore_id))
 		{
 			ImageWindow* image = Frame::frame->m_image;
 			if (!image->m_sel_session.has_value())
 				image->m_sel_session.emplace(image);
-			image->m_sel_session.value().select(measure, pore_id);
-			float pore_x = std::get<CENTROID_X>(container[item_index]), pore_y = std::get<CENTROID_Y>(container[item_index]);
+			image->m_sel_session.value().select(pore_id);
+			float pore_x = std::get<CENTROID_X>(container[index]), pore_y = std::get<CENTROID_Y>(container[index]);
 			image->scale_center.x = nearest_integer<int>(pore_x);
 			image->scale_center.y = nearest_integer<int>(pore_y);
 			image->Refresh();
@@ -498,16 +456,16 @@ void StatisticWindow::PoresStatisticList::OnDeselection(wxListEvent& event)
 	MeasureWindow* measure = Frame::frame->m_measure;
 	std::vector<uint32_t> selected;
 	selected.reserve(GetSelectedItemCount());
-	auto item2id_converter = get_converter<true>(measure);
+	auto item2index_converter = GET_CONVERTER(true);
 	for (long item = GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED); item != -1; item = GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED))
-		selected.push_back(item2id_converter(item));
+		selected.push_back(std::get<ID>(container[item2index_converter(item)]));
 	bool do_refresh = false;
 	for (auto it = measure->m_selected_pores.begin(), end = measure->m_selected_pores.end(); it != end;)
 	{
 		uint32_t id = *it++;
 		if (auto find_it = std::lower_bound(selected.begin(), selected.end(), id); find_it == selected.end() || *find_it != id)
 		{
-			Frame::frame->m_image->m_sel_session.value().deselect(measure, id);
+			Frame::frame->m_image->m_sel_session.value().deselect(id);
 			do_refresh = true;
 		}
 	}
@@ -530,18 +488,18 @@ void StatisticWindow::PoresStatisticList::OnColumnClick(wxListEvent& event)
 void StatisticWindow::PoresStatisticList::select_item(uint32_t pore_id)
 {
 	dont_affect = true;
-	long item_index = id_to_item(Frame::frame->m_measure, pore_id);
-	SetItemState(item_index, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+	long item = index_to_item(ID_TO_INDEX(pore_id));
+	SetItemState(item, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
 	wxRect rect;
 	GetItemRect(0, rect);
-	ScrollList(0, rect.height*(item_index - GetScrollPos(wxVERTICAL)));
+	ScrollList(0, rect.height*(item - GetScrollPos(wxVERTICAL)));
 	dont_affect = false;
 }
 
 void StatisticWindow::PoresStatisticList::deselect_item(uint32_t pore_id)
 {
 	dont_affect = true;
-	SetItemState(id_to_item(Frame::frame->m_measure, pore_id), 0, wxLIST_STATE_SELECTED);
+	SetItemState(index_to_item(ID_TO_INDEX(pore_id)), 0, wxLIST_STATE_SELECTED);
 	dont_affect = false;
 }
 
@@ -556,18 +514,10 @@ void StatisticWindow::PoresStatisticList::deselect_all()
 
 void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 {
-	MeasureWindow* measure = Frame::frame->m_measure;
-	if (parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
-	{
-		wxItemAttr attr;
-		attr.SetBackgroundColour(0xAAAAEE);
-		attributes.insert({pore_id, attr});
-	}
-	long item_index = id_to_item(measure, pore_id);
-	auto item_iter = container.begin() + item_index;
-	row_t item_row = *item_iter;
-	if (!parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
-		container.erase(item_iter);
+	wxItemAttr attr;
+	attr.SetBackgroundColour(0xAAAAEE);
+	attributes.insert({pore_id, attr});
+	row_t& item_row = container[ID_TO_INDEX(pore_id)];
 	--parent_statwindow->num_considered;
 
 #define CHECK_MIN_MAX(z, n, is_min) \
@@ -581,42 +531,35 @@ void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 						if (auto tmp_value = std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(*it); tmp_value BOOST_PP_IF(is_min, <, >) value) [[unlikely]] \
 						{ \
 							value = tmp_value; \
-							measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->BOOST_PP_IF(is_min, min, max) = tmp_value; \
+							Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->BOOST_PP_IF(is_min, min, max) = tmp_value; \
 						} \
 			} \
 		}
 	RECALCULATE(1)
 #undef CHECK_MIN_MAX
 
-	after_changes(measure, std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) -= measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
+	after_changes(std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) -= Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
 }
 
+// TODO : проверить фильтры
 void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
 {
-	MeasureWindow* measure = Frame::frame->m_measure;
-	container_t::iterator item_iter;
-	if (parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
-	{
-		long item_index = pore_id + 3;
-		item_iter = container.begin() + item_index;
-		attributes.erase(pore_id);
-	}
-	else
-	{
-		pore_statistic_collector psc(measure, container);
-		psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(pore_id);
-		psc.collect(pore_id);
-		long offset = id_to_item(measure, pore_id);
-		if (offset < container.size()-1)
-		{
-			row_t row = std::move(container.back());
-			for (std::size_t i = container.size() - 1; i > offset; --i)
-				container[i] = std::move(container[i - 1]);
-			container[offset] = std::move(row);
+	row_t& item_row = container[ID_TO_INDEX(pore_id)];
+
+#define CHECK_FILTERS(z, _, i, s) \
+		{ \
+			float value = std::get<BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(item_row); \
+			if (auto [min_value, max_value] = Frame::frame->m_measure->s->get_values(); min_value > value || max_value < value) [[unlikely]] \
+			{ \
+				attributes[pore_id].SetBackgroundColour(0xAAEEEE); \
+				Refresh(); \
+				Update(); \
+				return; \
+			} \
 		}
-		item_iter = container.begin() + offset;
-	}
-	row_t& item_row = *item_iter;
+	BOOST_PP_SEQ_FOR_EACH_I(CHECK_FILTERS, ~, SLIDERS)
+
+	attributes.erase(pore_id);
 	++parent_statwindow->num_considered;
 
 #define CHECK_MIN_MAX(z, n, is_min) \
@@ -625,35 +568,40 @@ void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
 			if (float item_value = std::get<BOOST_PP_SEQ_ELEM(n, PARAMS_NAMES)>(item_row); item_value BOOST_PP_IF(is_min, <, >) value) [[unlikely]] \
 			{ \
 				value = item_value; \
-				measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->BOOST_PP_IF(is_min, min, max) = item_value; \
+				Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->BOOST_PP_IF(is_min, min, max) = item_value; \
 			} \
 		}
 	RECALCULATE(0)
 #undef CHECK_MIN_MAX
 
-	after_changes(measure, std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) += measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
+	after_changes(std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) += Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_multiset>().count(pore_id));
+}
+
+void StatisticWindow::PoresStatisticList::set_item_count()
+{
+	uint32_t item_count = 4 + parent_statwindow->num_considered;
+	if (parent_statwindow->settings_window->m_checkBox_deleted->IsChecked())
+		item_count += Frame::frame->m_measure->m_deleted_pores.size();
+	if (parent_statwindow->settings_window->m_checkBox_filtered->IsChecked())
+		item_count += Frame::frame->m_measure->m_filtered_pores.size();
+	SetItemCount(item_count);
 }
 
 void StatisticWindow::PoresStatisticList::set_columns_width()
 {
-	for (uint8_t i : {PORES_PARAMS})
-		if (i != ID)
-			SetColumnWidth(i, wxLIST_AUTOSIZE_USEHEADER);
-		else
-			SetColumnWidth(i, wxLIST_AUTOSIZE);
+#define SET_COLUMN_WIDTH(r, x, value) SetColumnWidth(value, wxLIST_AUTOSIZE);
+	BOOST_PP_SEQ_FOR_EACH(SET_COLUMN_WIDTH, ~, PORES_CALCULATING_PARAMS)
 }
 
-void StatisticWindow::PoresStatisticList::after_changes(MeasureWindow* measure, float pores_square)
+void StatisticWindow::PoresStatisticList::after_changes(float pores_square)
 {
-	uint32_t all_size = measure->width*measure->height;
+	uint32_t all_size = Frame::frame->m_measure->width*Frame::frame->m_measure->height;
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[2]) = parent_statwindow->num_considered;
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[3]) = pores_square/float(all_size);
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[4]) = pores_square;
 	std::get<CommonStatisticList::PARAM_VALUE>(parent_statwindow->common_statistic_list->container[5]) = all_size - pores_square;
 
-	SetItemCount((parent_statwindow->settings_window->m_checkBox_deleted->IsChecked() ? measure->pores_count : parent_statwindow->num_considered) + 4);
-	//parent_statwindow->common_statistic_list->SetColumnWidth(1, wxLIST_AUTOSIZE);
-	//set_columns_width();
+	set_item_count();
 	parent_statwindow->common_statistic_list->Refresh();
 	parent_statwindow->distribution_window->Refresh();
 	Refresh();
@@ -766,7 +714,6 @@ void StatisticWindow::DistributionWindow::OnPaint(wxPaintEvent& event)
 				set_correct_font_size(gc.get(), *it, 10, label_max_width, label_max_height);
 			}
 		}
-		//gc->SetTransform(default_matrix);
 		for (uint8_t i = 0; i <= k; ++i)
 		{
 			gc->GetTextExtent(strings[i], &text_width_tmp, &text_height_tmp);
@@ -854,74 +801,14 @@ void StatisticWindow::SettingsWindow::OnDistributionColor(wxCommandEvent& event)
 
 void StatisticWindow::SettingsWindow::OnShowDeleted(wxCommandEvent& event)
 {
-	if (MeasureWindow* measure = Frame::frame->m_measure; event.IsChecked())
-	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [measure](auto& id_attr){return measure->m_deleted_pores.contains(id_attr.first);});
-		pore_statistic_collector psc(measure, parent_statwindow->pores_statistic_list->container);
-		for (uint32_t id : measure->m_deleted_pores)
-		{
-			psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(id);
-			psc.collect(id);
-
-			wxItemAttr attr;
-			attr.SetBackgroundColour(0xAAAAEE);
-			parent_statwindow->pores_statistic_list->attributes.insert({id, attr});
-		}
-		std::sort(parent_statwindow->pores_statistic_list->container.begin() + 4, parent_statwindow->pores_statistic_list->container.end(),
-			[](const PoresStatisticList::row_t& lhs, const PoresStatisticList::row_t& rhs){return std::get<PoresStatisticList::ID>(lhs) < std::get<PoresStatisticList::ID>(rhs);});
-		
-		parent_statwindow->pores_statistic_list->SetItemCount(parent_statwindow->pores_statistic_list->GetItemCount() + measure->m_deleted_pores.size());
-	}
-	else
-	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, 
-			[id2item_converter = parent_statwindow->pores_statistic_list->get_converter<false>(measure), &container = parent_statwindow->pores_statistic_list->container, measure, this](auto& id_attr) mutable
-		{
-			if (measure->m_deleted_pores.contains(id_attr.first))
-			{
-				container.erase(container.begin() + id2item_converter(id_attr.first));
-				return true;
-			}
-		});
-		parent_statwindow->pores_statistic_list->SetItemCount(parent_statwindow->pores_statistic_list->GetItemCount() - measure->m_deleted_pores.size());
-	}
+	parent_statwindow->pores_statistic_list->set_item_count();
 	parent_statwindow->pores_statistic_list->Refresh();
 	parent_statwindow->pores_statistic_list->Update();
 }
 
 void StatisticWindow::SettingsWindow::OnShowFiltered(wxCommandEvent& event)
 {
-	if (MeasureWindow* measure = Frame::frame->m_measure; event.IsChecked())
-	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, [measure](auto& id_attr){return measure->m_filtered_pores.contains(id_attr.first);});
-		pore_statistic_collector psc(measure, parent_statwindow->pores_statistic_list->container);
-		for (uint32_t id : measure->m_filtered_pores)
-		{
-			psc.it = measure->m_pores.get<MeasureWindow::tag_multiset>().find(id);
-			psc.collect(id);
-
-			wxItemAttr attr;
-			attr.SetBackgroundColour(0xAAEEEE);
-			parent_statwindow->pores_statistic_list->attributes.insert({id, attr});
-		}
-		std::sort(parent_statwindow->pores_statistic_list->container.begin() + 4, parent_statwindow->pores_statistic_list->container.end(),
-			[](const PoresStatisticList::row_t& lhs, const PoresStatisticList::row_t& rhs){return std::get<PoresStatisticList::ID>(lhs) < std::get<PoresStatisticList::ID>(rhs);});
-
-		parent_statwindow->pores_statistic_list->SetItemCount(parent_statwindow->pores_statistic_list->GetItemCount() + measure->m_filtered_pores.size());
-	}
-	else
-	{
-		std::erase_if(parent_statwindow->pores_statistic_list->attributes, 
-			[id2item_converter = parent_statwindow->pores_statistic_list->get_converter<false>(measure), &container = parent_statwindow->pores_statistic_list->container, measure, this](auto& id_attr) mutable
-		{
-			if (measure->m_filtered_pores.contains(id_attr.first))
-			{
-				container.erase(container.begin() + id2item_converter(id_attr.first));
-				return true;
-			}
-		});
-		parent_statwindow->pores_statistic_list->SetItemCount(parent_statwindow->pores_statistic_list->GetItemCount() - measure->m_filtered_pores.size());
-	}
+	parent_statwindow->pores_statistic_list->set_item_count();
 	parent_statwindow->pores_statistic_list->Refresh();
 	parent_statwindow->pores_statistic_list->Update();
 }

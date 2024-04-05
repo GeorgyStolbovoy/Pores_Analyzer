@@ -18,8 +18,8 @@ wxBEGIN_EVENT_TABLE(CorrectionWindow, wxWindow)
     EVT_MOUSE_CAPTURE_LOST(CorrectionWindow::OnCaptureLost)
 wxEND_EVENT_TABLE()
 
-CorrectionWindow::CorrectionWindow(wxWindow *parent, const wxSize& size) :
-    wxWindow(parent, wxID_ANY, wxDefaultPosition, size, wxFULL_REPAINT_ON_RESIZE | wxBORDER_SIMPLE | wxWANTS_CHARS),
+CorrectionWindow::CorrectionWindow(const wxSize& size) :
+    wxWindow(Frame::frame, wxID_ANY, wxDefaultPosition, size, wxFULL_REPAINT_ON_RESIZE | wxBORDER_SIMPLE | wxWANTS_CHARS),
     saved_width(GetSize().GetWidth()), saved_height(GetSize().GetHeight()),
     points({
         {{0.0, 0.0}, false, true},

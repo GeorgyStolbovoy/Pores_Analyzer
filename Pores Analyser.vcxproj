@@ -182,13 +182,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\CorrectionWindow.cpp" />
-    <ClCompile Include="src\DoubleSlider.cpp" />
     <ClCompile Include="src\Entry.cpp" />
     <ClCompile Include="src\Frame.cpp" />
     <ClCompile Include="src\Frame_ctor.cpp" />
     <ClCompile Include="src\ImageWindow.cpp" />
     <ClCompile Include="src\MeasureWindow.cpp" />
-    <ClCompile Include="src\MeasureWindow_ctor.cpp" />
+    <ClCompile Include="src\MeasureWindow_ctor.cpp">
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</PreprocessToFile>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</PreprocessToFile>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PreprocessToFile>
+    </ClCompile>
     <ClCompile Include="src\MorphologyWindow.cpp" />
     <ClCompile Include="src\StatisticWindow.cpp">
       <UseStandardPreprocessor Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</UseStandardPreprocessor>
@@ -203,7 +207,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\CorrectionWindow.h" />
-    <ClInclude Include="inc\DoubleSlider.h" />
+    <ClInclude Include="inc\DoubleSlider.hpp" />
     <ClInclude Include="inc\Frame.h" />
     <ClInclude Include="inc\ImageWindow.h" />
     <ClInclude Include="inc\MeasureWindow.h" />

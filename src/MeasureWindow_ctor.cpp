@@ -1,6 +1,5 @@
 #include "MeasureWindow.h"
 #include "Frame.h"
-#include "Utils.h"
 #include <wx/statbox.h>
 #include <wx/button.h>
 #include <wx/choice.h>
@@ -139,14 +138,10 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 
 	paneSz = new wxBoxSizer( wxVERTICAL );
 
-#define CALLBACK(z, data, p) FilterCallback<StatisticWindow::p, BOOST_PP_IF(data, true, false)>
-
-	using callback_t = Invoker<std::max({1}), void, float>;
-
 #define ADD_SLIDER(z, data, i, s) \
 	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);) \
 	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT(BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS_NAMES)))), wxVERTICAL); \
-	s = new DoubleSlider(win_pane_filter, callback_t{CALLBACK(~, 1, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS)))}, callback_t{CALLBACK(~, 0, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS)))}); \
+	s = new DoubleSlider(win_pane_filter, filter_callback_min_t{FILTER_CALLBACK(~, 1, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), PORES_CALCULATING_PARAMS)){}}, filter_callback_max_t{FILTER_CALLBACK(~, 0, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), PORES_CALCULATING_PARAMS)){}}); \
 	static_box_sizer->Add(s, 1, wxALL|wxEXPAND, 5); \
 	sizer_horizontal->Add(static_box_sizer, data, wxEXPAND, 5); \
 	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), paneSz->Add(sizer_horizontal, 1, wxEXPAND, 5);)
@@ -171,4 +166,93 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 
 	SetSizer(sizer_measure);
 	Layout();
+}
+
+template <uint8_t ParamNumber, bool is_min_or_max>
+void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float min_value, float max_value)
+{
+	if (gil::view(Frame::frame->m_image->image).empty()) [[unlikely]]
+		return;
+
+#define RESET_MIN_MAX(z, _, p) std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[(CONDITIONAL(is_min_or_max, 2, 3))]) \
+			= CONDITIONAL(is_min_or_max, std::numeric_limits<float>::max(), std::numeric_limits<float>::min());
+#define REFRESH_MIN_MAX_MEAN(z, is_add, p) \
+		{ \
+			float& extr_value = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[(CONDITIONAL(is_min_or_max, 2, 3))]); \
+			float &mean_value = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[0]); \
+			float pore_value = std::get<StatisticWindow::pores_statistic_list_t::p>(*it); \
+			if (CONDITIONAL(is_min_or_max, extr_value > pore_value, extr_value < pore_value, =)) [[unlikely]] \
+				extr_value = pore_value; \
+			mean_value = (mean_value * (Frame::frame->m_statistic->num_considered BOOST_PP_IF(is_add, -, +) 1) BOOST_PP_IF(is_add, +, -) pore_value) / Frame::frame->m_statistic->num_considered; \
+		}
+#define ADD_OR_DEDUCT(is_add) \
+		BOOST_PP_IF(is_add, ++, --)Frame::frame->m_statistic->num_considered; \
+		pores_square BOOST_PP_IF(is_add, +=, -=) Frame::frame->m_measure->m_pores.get<tag_multiset>().count(id); \
+		BOOST_PP_SEQ_FOR_EACH(REFRESH_MIN_MAX_MEAN, is_add, PORES_CALCULATING_PARAMS)
+#define CHECK_FILTERS(z, iter_to_row, i, s) \
+		if constexpr (ParamNumber != StatisticWindow::pores_statistic_list_t::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)) \
+		{ \
+			float value = std::get<StatisticWindow::pores_statistic_list_t::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(*iter_to_row); \
+			if (auto [min_value, max_value] = Frame::frame->m_measure->s->get_values(); min_value > value || max_value < value) [[unlikely]] \
+				return false; \
+		}
+
+	float &pores_square = std::get<StatisticWindow::common_statistic_list_t::PARAM_VALUE>(Frame::frame->m_statistic->common_statistic_list->container[4]);
+	BOOST_PP_SEQ_FOR_EACH(RESET_MIN_MAX, ~, PORES_CALCULATING_PARAMS)
+	for (auto it = Frame::frame->m_statistic->pores_statistic_list->container.begin() + 4, end = Frame::frame->m_statistic->pores_statistic_list->container.end(); it != end; ++it)
+	{
+		if (uint32_t id = std::get<StatisticWindow::pores_statistic_list_t::ID>(*it); !Frame::frame->m_measure->m_deleted_pores.contains(id))
+		{
+			if (float value = std::get<ParamNumber>(*it); CONDITIONAL(is_min_or_max, value < min_value, value > max_value, =))
+			{
+				if (Frame::frame->m_measure->m_filtered_pores.insert(id).second)
+				{
+					wxItemAttr attr;
+					attr.SetBackgroundColour(0xAAEEEE);
+					Frame::frame->m_statistic->pores_statistic_list->attributes.insert({id, attr});
+					ADD_OR_DEDUCT(0)
+				}
+			}
+			else if (auto find_it = Frame::frame->m_measure->m_filtered_pores.find(id); find_it != Frame::frame->m_measure->m_filtered_pores.end()
+				&& CONDITIONAL(is_min_or_max, value <= max_value, value >= min_value, =) && [it](){BOOST_PP_SEQ_FOR_EACH_I(CHECK_FILTERS, it, SLIDERS) return true;}())
+			{
+				Frame::frame->m_measure->m_filtered_pores.erase(find_it);
+				Frame::frame->m_statistic->pores_statistic_list->attributes.erase(id);
+				ADD_OR_DEDUCT(1)
+			}
+		}
+	}
+	Frame::frame->m_statistic->pores_statistic_list->set_item_count();
+
+	uint32_t all_size = Frame::frame->m_measure->width * Frame::frame->m_measure->height;
+	std::get<StatisticWindow::common_statistic_list_t::PARAM_VALUE>(Frame::frame->m_statistic->common_statistic_list->container[2]) = Frame::frame->m_statistic->num_considered;
+	std::get<StatisticWindow::common_statistic_list_t::PARAM_VALUE>(Frame::frame->m_statistic->common_statistic_list->container[3]) = pores_square/float(all_size);
+	std::get<StatisticWindow::common_statistic_list_t::PARAM_VALUE>(Frame::frame->m_statistic->common_statistic_list->container[5]) = all_size - pores_square;
+
+#define SET_MEAN_DEVIATION(z, set_deviation, p) \
+		{ \
+			float mean = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[0]); \
+			BOOST_PP_IF(set_deviation, \
+				double deviation = 0; \
+				for (auto it = Frame::frame->m_statistic->pores_statistic_list->container.begin() + 4, end = Frame::frame->m_statistic->pores_statistic_list->container.end(); it != end; ++it) \
+					if (!Frame::frame->m_statistic->pores_statistic_list->attributes.contains(std::get<StatisticWindow::pores_statistic_list_t::ID>(*it))) \
+						deviation += std::pow(mean - std::get<StatisticWindow::pores_statistic_list_t::p>(*it), 2); \
+				std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[1]) = std::sqrtf(deviation/(Frame::frame->m_statistic->num_considered-1)); \
+				, \
+				std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[1]) = 1; \
+			) \
+		}
+
+	if (Frame::frame->m_statistic->num_considered > 1) {
+		BOOST_PP_SEQ_FOR_EACH(SET_MEAN_DEVIATION, 1, PORES_CALCULATING_PARAMS)
+	} else if (Frame::frame->m_statistic->num_considered == 1) {
+		BOOST_PP_SEQ_FOR_EACH(SET_MEAN_DEVIATION, 0, PORES_CALCULATING_PARAMS)
+	}
+
+	Frame::frame->m_statistic->common_statistic_list->Refresh();
+	Frame::frame->m_statistic->pores_statistic_list->Refresh();
+	Frame::frame->m_statistic->distribution_window->Refresh();
+	Frame::frame->m_statistic->distribution_window->Update();
+	Frame::frame->m_statistic->common_statistic_list->Update();
+	Frame::frame->m_statistic->pores_statistic_list->Update();
 }

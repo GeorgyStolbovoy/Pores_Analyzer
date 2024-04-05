@@ -9,8 +9,12 @@
 #include <../art/delete.xpm>
 #include <../art/redo.xpm>
 
+Frame* Frame::frame;
+
 Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 {
+	frame = this;
+
 	wxMenuBar* m_menubar1 = new wxMenuBar(0);
 	wxMenu* m_menu1 = new wxMenu();
 	wxMenuItem* m_menuItem1 = new wxMenuItem( m_menu1, wxID_OPEN, wxString(wxT("Загрузить изображение")));
@@ -60,7 +64,7 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	wxStaticLine* m_staticline1 = new wxStaticLine( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL );
 	bSizer_imageControl->Add( m_staticline1, 0, wxEXPAND | wxALL, 5 );
 
-	m_curves = new CorrectionWindow(this, wxDefaultSize);
+	m_curves = new CorrectionWindow(wxDefaultSize);
 	m_curves->Enable(false);
 	bSizer_imageControl->Add( m_curves, 0, wxEXPAND | wxALL, 5 );
 	
@@ -72,7 +76,7 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	sizer_analysis->Add(m_measure, 0, wxALL|wxEXPAND, 5);
 
-	m_statistic = new StatisticWindow(this);
+	m_statistic = new StatisticWindow();
 
 	sizer_analysis->Add(m_statistic, 1, wxALL|wxEXPAND, 5);
 
