@@ -35,17 +35,14 @@ void MeasureWindow::OnSwitchColor(wxCommandEvent& event)
 void MeasureWindow::OnDeleteBackground(wxCommandEvent& event)
 {
 	uint32_t id_to_delete = get_biggest_pore_id();
+	if (id_to_delete == 0) [[unlikely]]
+		return;
 	if (event.IsChecked())
 	{
 		if (m_deleted_pores.insert(id_to_delete).second)
 		{
 			if (m_selected_pores.contains(id_to_delete)) [[unlikely]]
-			{
-				Frame::frame->m_image->m_sel_session.value().deselect(id_to_delete);
-				Frame::frame->m_statistic->pores_statistic_list->deselect_item(id_to_delete);
-				if (m_selected_pores.empty())
-					Frame::frame->m_image->m_sel_session = std::nullopt;
-			}
+				Frame::frame->m_image->deselect_pore(id_to_delete);
 			Frame::frame->m_statistic->pores_statistic_list->on_pore_deleted(id_to_delete);
 		}
 		else
@@ -123,7 +120,7 @@ void MeasureWindow::OnErosion(wxCommandEvent& event)
 			for (;;)
 			{
 				uint32_t pore_id = it->first;
-				if (!self->m_deleted_pores.contains(pore_id))
+				if (!self->m_deleted_pores.contains(pore_id) && !self->m_filtered_pores.contains(pore_id))
 				{
 					do
 					{
@@ -177,7 +174,7 @@ void MeasureWindow::OnErosion(wxCommandEvent& event)
 			for (;;)
 			{
 				old_id = it->first;
-				if (self->m_deleted_pores.contains(old_id)) [[unlikely]]
+				if (self->m_deleted_pores.contains(old_id) || self->m_filtered_pores.contains(old_id)) [[unlikely]]
 				{
 					++self->pores_count;
 					do
@@ -229,7 +226,7 @@ void MeasureWindow::OnDilation(wxCommandEvent& event)
 	{
 		for (auto& pore: pixels_to_insert)
 		{
-			if (auto result = m_pores.get<tag_hashset>().insert(pore); !result.second && m_deleted_pores.contains(result.first->first)) [[unlikely]]
+			if (auto result = m_pores.get<tag_hashset>().insert(pore); !result.second && (m_deleted_pores.contains(result.first->first) || m_filtered_pores.contains(result.first->first))) [[unlikely]]
 				m_pores.get<tag_multiset>().modify_key(m_pores.project<tag_multiset>(result.first), [&pore](uint32_t& id){id = pore.first;});
 		}
 		after_measure();
@@ -239,7 +236,7 @@ void MeasureWindow::OnDilation(wxCommandEvent& event)
 	for (auto it = m_pores.get<tag_multiset>().begin(), end = m_pores.get<tag_multiset>().end();;)
 	{
 		uint32_t pore_id = it->first;
-		if (!m_deleted_pores.contains(pore_id))
+		if (!m_deleted_pores.contains(pore_id) && !m_filtered_pores.contains(pore_id))
 		{
 			do
 			{
@@ -258,8 +255,8 @@ void MeasureWindow::OnDilation(wxCommandEvent& event)
 				}
 			} while (it->first == pore_id);
 		}
-		else if ((it = m_pores.get<MeasureWindow::tag_multiset>().lower_bound(pore_id, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
-			== m_pores.get<MeasureWindow::tag_multiset>().end()) [[unlikely]]
+		else if ((it = m_pores.get<tag_multiset>().lower_bound(pore_id, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
+			== m_pores.get<tag_multiset>().end()) [[unlikely]]
 		{
 			finalize();
 			return;
@@ -353,15 +350,17 @@ void MeasureWindow::inspect_pore(const inspecting_pixel& insp_pixel)
 	m_checklist.get<tag_hashset>().merge(local_checklist.get<tag_hashset>());
 }
 
+// Игнорирует отфильтрованные поры
 uint32_t MeasureWindow::get_biggest_pore_id()
 {
 	uint32_t id_to_delete = 0;
 	for (uint32_t i = 1, max_count = 0; i <= pores_count; ++i)
-		if (uint32_t c = m_pores.get<tag_multiset>().count(i); c > max_count) [[unlikely]]
-		{
-			max_count = c;
-			id_to_delete = i;
-		}
+		if (!m_filtered_pores.contains(i))
+			if (uint32_t c = m_pores.get<tag_multiset>().count(i); c > max_count) [[unlikely]]
+			{
+				max_count = c;
+				id_to_delete = i;
+			}
 	return id_to_delete;
 }
 
@@ -381,6 +380,7 @@ void MeasureWindow::after_measure()
 	m_selected_pores.clear();
 	m_boundary_pixels.clear();
 	m_deleted_pores.clear();
+	m_filtered_pores.clear();
 	if (m_toggle_background->GetValue())
 		m_deleted_pores.insert(get_biggest_pore_id());
 
@@ -394,12 +394,12 @@ void MeasureWindow::after_measure()
 	else if (size > color_num)
 		m_colors.erase(m_colors.begin() + color_num, m_colors.end());
 
-	auto pore_it = m_pores.get<MeasureWindow::tag_multiset>().begin(), pore_end = m_pores.get<MeasureWindow::tag_multiset>().end();
+	auto pore_it = m_pores.get<tag_multiset>().begin(), pore_end = m_pores.get<tag_multiset>().end();
 	for (uint32_t i = pore_it->first;;)
 	{
-		if (MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator end_it = m_pores.get<MeasureWindow::tag_hashset>().end(), tmp_it;
+		if (pores_container::index<tag_hashset>::type::iterator end_it = m_pores.get<tag_hashset>().end(), tmp_it;
 			pore_it->second.first == 0 || pore_it->second.first == width-1 || pore_it->second.second == 0 || pore_it->second.second == height-1 ||
-#define COND(dx, dy) (tmp_it = m_pores.get<MeasureWindow::tag_hashset>().find(coord_t{pore_it->second.first dx, pore_it->second.second dy})) == end_it || tmp_it->first != i
+#define COND(dx, dy) (tmp_it = m_pores.get<tag_hashset>().find(coord_t{pore_it->second.first dx, pore_it->second.second dy})) == end_it || tmp_it->first != i
 			COND(, +1) || COND(+1, +1) || COND(+1,) || COND(+1, -1) || COND(, -1) || COND(-1, -1) || COND(-1,) || COND(-1, +1)) [[unlikely]]
 			m_boundary_pixels.insert(pore_it->second);
 		if (++pore_it == pore_end) [[unlikely]]

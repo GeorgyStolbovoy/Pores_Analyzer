@@ -75,16 +75,34 @@ class StatisticWindow : public wxWindow
 #define INDEX_TO_ID(item) (item - 3)
 #define ID_TO_INDEX(id) (id + 3)
 #define CONVERTER_BODY(arg, is_item_to_index, consider_deleted, consider_filtered) \
-			auto ret = arg; \
-			BOOST_PP_EXPR_IF(consider_deleted, \
-				std::ptrdiff_t deleted_before = std::distance(Frame::frame->m_measure->m_deleted_pores.begin(), Frame::frame->m_measure->m_deleted_pores.upper_bound(std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg]))); \
-				ret BOOST_PP_IF(is_item_to_index, +=, -=) deleted_before; \
-				BOOST_PP_EXPR_IF(consider_filtered, arg BOOST_PP_IF(is_item_to_index, +=, -=) deleted_before;) \
-			) \
-			BOOST_PP_EXPR_IF(consider_filtered, \
-				ret BOOST_PP_IF(is_item_to_index, +=, -=) std::distance(Frame::frame->m_measure->m_filtered_pores.begin(), Frame::frame->m_measure->m_filtered_pores.upper_bound(std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg]))); \
-			) \
-			return ret;
+			BOOST_PP_IF(is_item_to_index, \
+				BOOST_PP_EXPR_IF(consider_deleted, auto del_bound_it = Frame::frame->m_measure->m_deleted_pores.begin(); auto del_bound_end = Frame::frame->m_measure->m_deleted_pores.end();) \
+				BOOST_PP_EXPR_IF(consider_filtered, auto fil_bound_it = Frame::frame->m_measure->m_filtered_pores.begin(); auto fil_bound_end = Frame::frame->m_measure->m_filtered_pores.end();) \
+				for (std::ptrdiff_t dropped = 0;; dropped = 0) \
+				{ \
+					BOOST_PP_EXPR_IF(consider_deleted, \
+						auto del_dropped_it = std::upper_bound(del_bound_it, del_bound_end, std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg])); \
+						dropped = std::distance(std::exchange(del_bound_it, del_dropped_it), del_dropped_it); \
+					) \
+					BOOST_PP_EXPR_IF(consider_filtered, \
+						auto fil_dropped_it = std::upper_bound(fil_bound_it, fil_bound_end, std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg])); \
+						dropped += std::distance(std::exchange(fil_bound_it, fil_dropped_it), fil_dropped_it); \
+					) \
+					if (dropped == 0) \
+						return arg; \
+					else \
+						arg += dropped; \
+				} \
+			, \
+				std::ptrdiff_t dropped = 0; \
+				BOOST_PP_EXPR_IF(consider_deleted, \
+					dropped = std::distance(Frame::frame->m_measure->m_deleted_pores.begin(), Frame::frame->m_measure->m_deleted_pores.upper_bound(std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg]))); \
+				) \
+				BOOST_PP_EXPR_IF(consider_filtered, \
+					dropped += std::distance(Frame::frame->m_measure->m_filtered_pores.begin(), Frame::frame->m_measure->m_filtered_pores.upper_bound(std::get<StatisticWindow::pores_statistic_list_t::ID>(Frame::frame->m_statistic->pores_statistic_list->container[arg]))); \
+				) \
+				return arg - dropped; \
+			)
 #define GET_CONVERTER(is_item_to_index) GET_STATIC_SWITCHER((std::conditional_t<is_item_to_index, std::size_t, long>), (std::conditional_t<is_item_to_index, long, std::size_t>), CONVERTER_BODY, (is_item_to_index), \
 			(!Frame::frame->m_statistic->settings_window->m_checkBox_deleted->IsChecked() && !Frame::frame->m_measure->m_deleted_pores.empty()), (!Frame::frame->m_statistic->settings_window->m_checkBox_filtered->IsChecked() && !Frame::frame->m_measure->m_filtered_pores.empty()))
 

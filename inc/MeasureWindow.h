@@ -50,6 +50,7 @@ public:
 			mi::hashed_unique<mi::tag<tag_hashset>, mi::key<&pore_coord_t::second>, boost::hash<coord_t>, pore_comp_t>
 		>
 	>;
+	using double_slider_t = DoubleSlider<filter_callback_min_t, filter_callback_max_t>;
 
 #define NAME_SLIDER(z, data, s) m_dslider_##s
 #define ID_SLIDER(z, data, s) dslider_##s##_id
@@ -60,7 +61,7 @@ public:
 	MorphologyWindow *m_window_erosion, *m_window_dilation;
 	wxSlider *m_slider_algorithm, *m_slider_transparency;
 #define ADD_POINTER(z, data, s) *s
-	DoubleSlider<filter_callback_min_t, filter_callback_max_t> BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
+	double_slider_t BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
 #undef ADD_POINTER
 	wxToggleButton *m_toggle_colorize, *m_toggle_background, *m_toggle_boundaries;
 	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;

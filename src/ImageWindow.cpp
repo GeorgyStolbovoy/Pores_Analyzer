@@ -271,12 +271,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
                 Frame::frame->m_statistic->pores_statistic_list->select_item(find_it->first);
             }
             else if (alt_down && already_selected)
-            {
-                m_sel_session.value().deselect(find_it->first);
-                Frame::frame->m_statistic->pores_statistic_list->deselect_item(find_it->first);
-                if (measure->m_selected_pores.empty()) [[unlikely]]
-                    m_sel_session = std::nullopt;
-            }
+                deselect_pore(find_it->first);
             else
                 break;
         }
@@ -302,12 +297,7 @@ void ImageWindow::OnMouseLeftDown(wxMouseEvent& event)
             measure->m_deleted_pores.insert(find_it->first);
             marked_image = wxNullImage;
             if (measure->m_selected_pores.contains(find_it->first))
-            {
-	            m_sel_session.value().deselect(find_it->first);
-                Frame::frame->m_statistic->pores_statistic_list->deselect_item(find_it->first);
-	            if (measure->m_selected_pores.empty()) [[unlikely]]
-	                m_sel_session = std::nullopt;
-            }
+                deselect_pore(find_it->first);
             Frame::frame->m_statistic->pores_statistic_list->on_pore_deleted(find_it->first);
             Refresh();
             Update();
@@ -448,6 +438,14 @@ void ImageWindow::ApplyHistogram(Histogram_t& hist)
     m_sel_session = std::nullopt;
     Refresh();
     Update();
+}
+
+void ImageWindow::deselect_pore(uint32_t id)
+{
+    m_sel_session.value().deselect(id);
+    Frame::frame->m_statistic->pores_statistic_list->deselect_item(id);
+    if (Frame::frame->m_measure->m_selected_pores.empty()) [[unlikely]]
+        m_sel_session = std::nullopt;
 }
 
 ImageWindow::SelectionSession::SelectionSession(ImageWindow* owner)

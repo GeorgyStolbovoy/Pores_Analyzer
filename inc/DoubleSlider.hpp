@@ -24,6 +24,22 @@ struct DoubleSlider : wxWindow
 		SetBackgroundStyle(wxBG_STYLE_PAINT);
 		SetMinSize({150, 47});
 	}
+	void set_min(float min_)
+	{
+		float value = (max - min)*min_pos + min;
+		min = min_;
+		min_pos = (value - min)/(max - min);
+		if (min_pos < 0.0f) [[unlikely]]
+			min_pos = 0.0;
+	}
+	void set_max(float max_)
+	{
+		float value = (max - min)*max_pos + min;
+		max = max_;
+		max_pos = (value - min)/(max - min);
+		if (max_pos > 1.0f) [[unlikely]]
+			max_pos = 1.0;
+	}
 	void set_values(float min_, float max_)
 	{
 		if (min_ <= max_)

@@ -176,19 +176,24 @@ void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float
 
 #define RESET_MIN_MAX(z, _, p) std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[(CONDITIONAL(is_min_or_max, 2, 3))]) \
 			= CONDITIONAL(is_min_or_max, std::numeric_limits<float>::max(), std::numeric_limits<float>::min());
-#define REFRESH_MIN_MAX_MEAN(z, is_add, p) \
+#define REFRESH_MIN_MAX_MEAN(z, tuple_is_add_refresh_mean, p) \
 		{ \
-			float& extr_value = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[(CONDITIONAL(is_min_or_max, 2, 3))]); \
-			float &mean_value = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[0]); \
 			float pore_value = std::get<StatisticWindow::pores_statistic_list_t::p>(*it); \
-			if (CONDITIONAL(is_min_or_max, extr_value > pore_value, extr_value < pore_value, =)) [[unlikely]] \
-				extr_value = pore_value; \
-			mean_value = (mean_value * (Frame::frame->m_statistic->num_considered BOOST_PP_IF(is_add, -, +) 1) BOOST_PP_IF(is_add, +, -) pore_value) / Frame::frame->m_statistic->num_considered; \
+			BOOST_PP_EXPR_IF(BOOST_PP_TUPLE_ELEM(0, tuple_is_add_refresh_mean), \
+				float& extr_value = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[(CONDITIONAL(is_min_or_max, 2, 3))]); \
+				if (CONDITIONAL(is_min_or_max, extr_value > pore_value, extr_value < pore_value, =)) [[unlikely]] \
+					extr_value = pore_value; \
+			) \
+			BOOST_PP_EXPR_IF(BOOST_PP_TUPLE_ELEM(1, tuple_is_add_refresh_mean), \
+				float& mean_value = std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[0]); \
+				mean_value = (mean_value * (Frame::frame->m_statistic->num_considered BOOST_PP_IF(BOOST_PP_TUPLE_ELEM(0, tuple_is_add_refresh_mean), -, +) 1) \
+					BOOST_PP_IF(BOOST_PP_TUPLE_ELEM(0, tuple_is_add_refresh_mean), +, -) pore_value) / Frame::frame->m_statistic->num_considered; \
+			) \
 		}
 #define ADD_OR_DEDUCT(is_add) \
 		BOOST_PP_IF(is_add, ++, --)Frame::frame->m_statistic->num_considered; \
 		pores_square BOOST_PP_IF(is_add, +=, -=) Frame::frame->m_measure->m_pores.get<tag_multiset>().count(id); \
-		BOOST_PP_SEQ_FOR_EACH(REFRESH_MIN_MAX_MEAN, is_add, PORES_CALCULATING_PARAMS)
+		BOOST_PP_SEQ_FOR_EACH(REFRESH_MIN_MAX_MEAN, (is_add, 1), PORES_CALCULATING_PARAMS)
 #define CHECK_FILTERS(z, iter_to_row, i, s) \
 		if constexpr (ParamNumber != StatisticWindow::pores_statistic_list_t::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)) \
 		{ \
@@ -210,15 +215,23 @@ void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float
 					wxItemAttr attr;
 					attr.SetBackgroundColour(0xAAEEEE);
 					Frame::frame->m_statistic->pores_statistic_list->attributes.insert({id, attr});
+					if (Frame::frame->m_measure->m_selected_pores.contains(id)) [[unlikely]]
+						Frame::frame->m_image->deselect_pore(id);
 					ADD_OR_DEDUCT(0)
 				}
 			}
-			else if (auto find_it = Frame::frame->m_measure->m_filtered_pores.find(id); find_it != Frame::frame->m_measure->m_filtered_pores.end()
-				&& CONDITIONAL(is_min_or_max, value <= max_value, value >= min_value, =) && [it](){BOOST_PP_SEQ_FOR_EACH_I(CHECK_FILTERS, it, SLIDERS) return true;}())
+			else if (auto find_it = Frame::frame->m_measure->m_filtered_pores.find(id); find_it != Frame::frame->m_measure->m_filtered_pores.end())
 			{
-				Frame::frame->m_measure->m_filtered_pores.erase(find_it);
-				Frame::frame->m_statistic->pores_statistic_list->attributes.erase(id);
-				ADD_OR_DEDUCT(1)
+				if (CONDITIONAL(is_min_or_max, value <= max_value, value >= min_value, =) && [it](){BOOST_PP_SEQ_FOR_EACH_I(CHECK_FILTERS, it, SLIDERS) return true;}())
+				{
+					Frame::frame->m_measure->m_filtered_pores.erase(find_it);
+					Frame::frame->m_statistic->pores_statistic_list->attributes.erase(id);
+					ADD_OR_DEDUCT(1)
+				}
+			}
+			else
+			{
+				BOOST_PP_SEQ_FOR_EACH(REFRESH_MIN_MAX_MEAN, (1, 0), PORES_CALCULATING_PARAMS)
 			}
 		}
 	}
@@ -249,9 +262,12 @@ void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float
 		BOOST_PP_SEQ_FOR_EACH(SET_MEAN_DEVIATION, 0, PORES_CALCULATING_PARAMS)
 	}
 
+	Frame::frame->m_image->marked_image = wxNullImage;
+	Frame::frame->m_image->Refresh();
 	Frame::frame->m_statistic->common_statistic_list->Refresh();
 	Frame::frame->m_statistic->pores_statistic_list->Refresh();
 	Frame::frame->m_statistic->distribution_window->Refresh();
+	Frame::frame->m_image->Update();
 	Frame::frame->m_statistic->distribution_window->Update();
 	Frame::frame->m_statistic->common_statistic_list->Update();
 	Frame::frame->m_statistic->pores_statistic_list->Update();

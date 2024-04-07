@@ -54,6 +54,7 @@ struct ImageWindow : wxWindow
 	void OnTimer(wxTimerEvent& event);
 	void Load(const wxString& path);
 	void ApplyHistogram(Histogram_t& hist);
+	void deselect_pore(uint32_t id);
 
 private:
 	Image_t image_source;
