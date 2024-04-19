@@ -12,12 +12,26 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 
 	wxBoxSizer* sizer_horizontal = new wxBoxSizer( wxHORIZONTAL );
 
-	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Пороговая разность")), wxHORIZONTAL);
-	m_slider_algorithm = new wxSlider( this, slider_algorithm_id, 128, 1, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_algorithm, 0, wxALL|wxEXPAND|wxCENTRE, 5);
-	sizer_horizontal->Add(static_box_sizer, 1, wxEXPAND, 5 );
-
 	wxBoxSizer* sizer_vertical = new wxBoxSizer( wxVERTICAL );
+
+	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Пороговая разность")), wxHORIZONTAL);
+	m_slider_algorithm = new wxSlider( this, slider_algorithm_id, diff, 1, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_algorithm, 0, wxALL|wxEXPAND|wxCENTRE, 5);
+	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
+
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Тест")), wxHORIZONTAL);
+	m_slider_test = new wxSlider( this, slider_test_id, 50, 0, 100, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_test, 0, wxALL|wxEXPAND|wxCENTRE, 5);
+	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
+
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Порог")), wxHORIZONTAL);
+	m_slider_thres = new wxSlider( this, slider_thres_id, threshold, 0, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_thres, 0, wxALL|wxEXPAND|wxCENTRE, 5);
+	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
+
+	sizer_horizontal->Add(sizer_vertical, 0, wxEXPAND, 5);
+
+	sizer_vertical = new wxBoxSizer( wxVERTICAL );
 
 	m_toggle_background = new wxToggleButton(this, toggle_background_id, wxT("Автоудаление фона (самого большого элемента)"));
 	m_toggle_background->SetValue(true);
@@ -143,15 +157,16 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_filter, wxID_ANY, wxT(BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), BOOST_PP_SEQ_POP_FRONT(PORES_PARAMS_NAMES)))), wxVERTICAL); \
 	s = new DoubleSlider(win_pane_filter, filter_callback_min_t{FILTER_CALLBACK(~, 1, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), PORES_CALCULATING_PARAMS)){}}, filter_callback_max_t{FILTER_CALLBACK(~, 0, BOOST_PP_SEQ_ELEM(BOOST_PP_ADD(i, data), PORES_CALCULATING_PARAMS)){}}); \
 	static_box_sizer->Add(s, 1, wxALL|wxEXPAND, 5); \
-	sizer_horizontal->Add(static_box_sizer, data, wxEXPAND, 5); \
+	sizer_horizontal->Add(static_box_sizer, 1, wxEXPAND, 5); \
 	BOOST_PP_EXPR_IF(BOOST_PP_NOT(BOOST_PP_MOD(i, 4)), paneSz->Add(sizer_horizontal, 1, wxEXPAND, 5);)
 
 	ADD_SLIDER(~, 0, 0, BOOST_PP_SEQ_HEAD(SLIDERS))
+	ADD_SLIDER(~, 0, 1, BOOST_PP_SEQ_ELEM(1, SLIDERS))
 	win_pane_filter->Bind(wxEVT_SIZE, [this, win_pane_filter, static_box_sizer](wxSizeEvent& e)
 	{
-		static_box_sizer->SetDimension(static_box_sizer->GetPosition(), {win_pane_filter->GetSize().GetWidth()/4, static_box_sizer->GetSize().GetHeight()});
+		static_box_sizer->SetDimension(static_box_sizer->GetPosition(), {win_pane_filter->GetSize().GetWidth()/2, static_box_sizer->GetSize().GetHeight()});
 	});
-	BOOST_PP_SEQ_FOR_EACH_I(ADD_SLIDER, 1, BOOST_PP_SEQ_POP_FRONT(SLIDERS))
+	BOOST_PP_SEQ_FOR_EACH_I(ADD_SLIDER, 2, BOOST_PP_SEQ_REST_N(2, SLIDERS))
 
 	win_pane_filter->SetSizer(paneSz);
 	paneSz->SetSizeHints(win_pane_filter);

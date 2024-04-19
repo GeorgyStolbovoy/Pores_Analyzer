@@ -56,10 +56,10 @@ public:
 #define ID_SLIDER(z, data, s) dslider_##s##_id
 #define SLIDERS BOOST_PP_SEQ_TRANSFORM(NAME_SLIDER, ~, PORES_CALCULATING_PARAMS)
 #define SLIDERS_IDS BOOST_PP_SEQ_TRANSFORM(ID_SLIDER, ~, PORES_CALCULATING_PARAMS)
-	static wxWindowID collapse_morphology_id, collapse_color_id, collapse_filter_id, slider_algorithm_id, slider_transparency_id, button_color_id, button_erosion_id, button_dilation_id,
-		toggle_color_id, toggle_background_id, toggle_boundaries_id, BOOST_PP_SEQ_ENUM(SLIDERS_IDS);
+	static wxWindowID collapse_morphology_id, collapse_color_id, collapse_filter_id, slider_algorithm_id, slider_transparency_id, slider_test_id, slider_thres_id,
+		button_color_id, button_erosion_id, button_dilation_id, toggle_color_id, toggle_background_id, toggle_boundaries_id, BOOST_PP_SEQ_ENUM(SLIDERS_IDS);
 	MorphologyWindow *m_window_erosion, *m_window_dilation;
-	wxSlider *m_slider_algorithm, *m_slider_transparency;
+	wxSlider *m_slider_algorithm, *m_slider_transparency, *m_slider_test, *m_slider_thres;
 #define ADD_POINTER(z, data, s) *s
 	double_slider_t BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
 #undef ADD_POINTER
@@ -70,6 +70,7 @@ public:
 	pores_container m_pores;
 	std::set<uint32_t> m_deleted_pores, m_filtered_pores, m_selected_pores;
 	std::unordered_set<coord_t, boost::hash<coord_t>> m_boundary_pixels;
+	std::unordered_map<uint32_t, float> references;
 	std::vector<uint8_t> m_colors;
 	std::ptrdiff_t height = 0, width = 0;
 	uint32_t pores_count;
@@ -78,6 +79,7 @@ public:
 	void NewMeasure(ImageWindow::Image_t::view_t view);
 	void OnChangeDifference(wxScrollEvent& event);
 	void OnChangeTransparency(wxScrollEvent& event);
+	void OnChangeThreshold(wxScrollEvent& event);
 	void OnChangeColor(wxCommandEvent& event);
 	void OnErosion(wxCommandEvent& event);
 	void OnDilation(wxCommandEvent& event);
@@ -98,7 +100,7 @@ private:
 	std::mt19937 m_rand_engine{std::random_device{}()};
     std::uniform_int_distribution<uint16_t> m_random{0, 255};
 	locator_t::cached_location_t cl_lt, cl_t, cl_rt, cl_r, cl_rb, cl_b, cl_lb, cl_l;
-	uint8_t diff;
+	uint8_t diff = 128, test = 50, threshold = 128;
 
 	void Measure(locator_t loc);
 	void inspect_pore(const inspecting_pixel& insp_pixel);
@@ -106,7 +108,6 @@ private:
 	template <bool reset_selection> void update_image();
 	void after_measure();
 
-private:
 	wxSizer *collapses_sizer, *pane_sizer;
 
 	wxDECLARE_EVENT_TABLE();

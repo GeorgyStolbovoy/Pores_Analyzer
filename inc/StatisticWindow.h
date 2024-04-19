@@ -41,14 +41,14 @@ class StatisticWindow : public wxWindow
 
 	struct PoresStatisticList : wxListCtrl
 	{
-#define PORES_PARAMS ID, SQUARE, PERIMETER, DIAMETER, CENTROID_X, CENTROID_Y, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
+#define PORES_PARAMS ID, SQUARE, BRIGHTNESS, PERIMETER, DIAMETER, CENTROID_X, CENTROID_Y, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
 #define STRINGSIZE_NAME(z, data, name) #name
 #define PORES_PARAMS_NAMES BOOST_PP_SEQ_TRANSFORM(STRINGSIZE_NAME, ~, BOOST_PP_VARIADIC_TO_SEQ( \
-			№, Площадь, Периметр, Эквивалентный диаметр, Координата X, Координата Y, Длина, Ширина, Высота проекции, Ширина проекции, Наибольший диаметр, Наименьший диаметр, Фактор формы, Удлинённость))
+			№, Площадь, Яркость, Периметр, Эквивалентный диаметр, Координата X, Координата Y, Длина, Ширина, Высота проекции, Ширина проекции, Наибольший диаметр, Наименьший диаметр, Фактор формы, Удлинённость))
 		static_assert(BOOST_PP_VARIADIC_SIZE(PORES_PARAMS) == BOOST_PP_SEQ_SIZE(PORES_PARAMS_NAMES));
 #define PORES_CALCULATING_PARAMS BOOST_PP_SEQ_POP_FRONT(BOOST_PP_VARIADIC_TO_SEQ(PORES_PARAMS))
-#define PARAMS_TYPE(z, data, p) float
-		using row_t = std::tuple<uint32_t, BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(PARAMS_TYPE, ~, PORES_CALCULATING_PARAMS))>;
+#define FILL(z, data, p) data
+		using row_t = std::tuple<uint32_t, BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(FILL, float, PORES_CALCULATING_PARAMS))>;
 #undef PARAMS_TYPE
 		using container_t = std::vector<row_t>;
 		enum : uint8_t {PORES_PARAMS};
