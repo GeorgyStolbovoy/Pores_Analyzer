@@ -104,16 +104,18 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 			m_pores.clear();
 			references.clear();
 
+			using coords_t = std::unordered_set<coord_t, boost::hash<coord_t>>;
 			std::forward_list<ImageWindow::Image_t::view_t::iterator> inspecting;
-			std::unordered_set<coord_t, boost::hash<coord_t>> coords;
+			coords_t coords;
+			for (std::ptrdiff_t i = 1; i < width; ++i)
+				coords.emplace(i, 0);
 			for (std::ptrdiff_t i = 0; i < width; ++i)
-				for (std::ptrdiff_t j = 0; j < height; ++j)
+				for (std::ptrdiff_t j = 1; j < height; ++j)
 					coords.emplace(i, j);
 			auto first_pixel = view.at(0, 0);
 			bool is_higher_thres = *first_pixel > threshold;
 			inspecting.push_front(first_pixel);
-			auto find_it = coords.find({first_pixel.x_pos(), first_pixel.y_pos()}), end_it = coords.end();
-			coords.erase(find_it);
+			coords_t::iterator find_it, end_it = coords.end();
 			for (auto it = inspecting.begin(), end = inspecting.end();;)
 			{
 				coord_t coord{it->x_pos(), it->y_pos()};
@@ -146,15 +148,14 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 				}
 			}
 
-			// Фон запомнить, но не обрабатывать
 			auto old_pores_it_1 = m_pores.get<tag_multiset>().begin(), old_pores_it_end = m_pores.get<tag_multiset>().end();
 			uint32_t max_id = old_pores_it_1->first;
 			auto old_pores_it_2 = m_pores.get<tag_multiset>().upper_bound(max_id);
 			for (uint32_t old_id = max_id, square = std::distance(old_pores_it_1, old_pores_it_2);;)
 			{
-				old_pores_it_1 = old_pores_it_2;
-				if (old_pores_it_1 == old_pores_it_end) [[unlikely]]
+				if (old_pores_it_2 == old_pores_it_end) [[unlikely]]
 					break;
+				old_pores_it_1 = old_pores_it_2;
 				old_id = old_pores_it_1->first;
 				old_pores_it_2 = m_pores.get<tag_multiset>().upper_bound(old_id);
 				if (uint32_t tmp_square = std::distance(old_pores_it_1, old_pores_it_2); tmp_square > square) [[unlikely]]
@@ -164,12 +165,7 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 				}
 			}
 
-			// 1) Некоторые поры поглотили часть других, и те могут быть разъединены -> проверить цельность, для разорванных пересчитать
-			// среднее значение и, может быть, объединить с соседом
-			// 2) Некоторые поры поглотили другие целиком -> пересчитать все идентификаторы для восстановления порядка
-			// 3) Объединить вложенные "поры"
 			pores_container separated_pores;
-
 			{
 #define SKIP_BACKGROUND(code) \
 					if (old_pores_it_1->first == max_id) [[unlikely]] \
@@ -209,14 +205,13 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 					if (++pores_it == pores_end) [[unlikely]]
 					{
 						references[pores_count] = reference / pore_pix_count;
-						old_pores_it_1 = m_pores.get<tag_multiset>().find(old_id);
-						if (old_pores_it_1 == old_pores_it_end)
+						old_pores_it_1 = m_pores.get<tag_multiset>().lower_bound(old_id);
+						if (old_pores_it_1 == old_pores_it_end) [[unlikely]]
+							break;
+						if (old_id != old_pores_it_1->first)
 						{
-							old_pores_it_1 = m_pores.get<tag_multiset>().upper_bound(old_id);
-							if (old_pores_it_1 == old_pores_it_end) [[unlikely]]
-								break;
 							SKIP_BACKGROUND(break;)
-								old_id = old_pores_it_1->first;
+							old_id = old_pores_it_1->first;
 						}
 						auto node = m_pores.get<tag_multiset>().extract(old_pores_it_1);
 						node.value().first = ++pores_count;
@@ -243,17 +238,141 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 					node.value().first = max_id;
 				}
 				references[max_id] = reference / pore_pix_count;
-				//separated_pores.swap(m_pores);
 			}
 
 			// Определить слипшиеся поры
 			{
+				struct Separator
+				{
+					static std::optional<std::forward_list<coords_t>> separate(coords_t& coords)
+					{
+						std::forward_list<coords_t> elemental_pores;
+						coords_t erosed;
+
+						for (;;)
+						{
+							std::vector<coords_t::iterator> iters_to_erosed;
+							for (auto coords_it = coords.begin(), coords_end = coords.end(); coords_it != coords_end;)
+							{
+								if (!coords.contains({coords_it->first, coords_it->second + 1}) || !coords.contains({coords_it->first + 1, coords_it->second})
+									|| !coords.contains({coords_it->first, coords_it->second - 1}) || !coords.contains({coords_it->first - 1, coords_it->second})) [[unlikely]]
+									iters_to_erosed.push_back(coords_it);
+							}
+							if (iters_to_erosed.size() == coords.size()) [[unlikely]]
+							{
+								coords.merge(std::move(erosed));
+								return std::nullopt;
+							}
+							for (auto it : iters_to_erosed)
+								erosed.insert(coords.extract(it));
+
+							for (auto coords_end = coords.end();;)
+							{
+								coords_t elemental_pore;
+								elemental_pore.insert(coords.extract(coords.begin()));
+								std::forward_list inspecting{elemental_pore.begin()};
+								auto insp_it = inspecting.begin(), insp_end = inspecting.end();
+								do
+								{
+#define INSPECT(r, d, ofs)				if (auto find_it = coords.find({(*insp_it)->first BOOST_PP_TUPLE_ELEM(0, ofs), (*insp_it)->second BOOST_PP_TUPLE_ELEM(1, ofs)}); find_it != coords_end) \
+											inspecting.insert_after(insp_it, elemental_pore.insert(coords.extract(find_it)).position);
+									BOOST_PP_SEQ_FOR_EACH(INSPECT, ~, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1)))
+#undef INSPECT
+								} while (++insp_it != insp_end);
+								elemental_pores.push_front(std::move(elemental_pore));
+								if (coords.empty())
+									break;
+							}
+
+							if (std::distance(elemental_pores.begin(), elemental_pores.end()) > 1) [[unlikely]]
+							{
+								for (auto elem_pores_it = elemental_pores.before_begin(), elem_pores_end = elemental_pores.end();;)
+								{
+									if (auto next_it = std::next(elem_pores_it); next_it != elem_pores_end)
+									{
+										if (auto opt_separated_pores = separate(*next_it); opt_separated_pores.has_value())
+										{
+											elemental_pores.erase_after(elem_pores_it);
+											elemental_pores.splice_after(elem_pores_it++, std::move(opt_separated_pores.value()));
+										}
+										else
+											++elem_pores_it;
+									}
+									else
+										break;
+								}
+								do
+								{
+									std::unordered_multimap<coords_t*, coords_t::iterator> iters_to_dilate;
+									auto erosed_it = erosed.begin(), erosed_end = erosed.end();
+									do
+									{
+										for (auto elem_pores_it = elemental_pores.begin(), elem_pores_end = elemental_pores.end(), elem_pores_owner = elem_pores_end;;)
+										{
+#define CHECK_CONTAINS(r, d, i, ofs) elem_pores_it->contains({erosed_it->first BOOST_PP_TUPLE_ELEM(0, ofs), erosed_it->second BOOST_PP_TUPLE_ELEM(1, ofs)}) BOOST_PP_EXPR_IF(BOOST_PP_NOT_EQUAL(d, i), ||)
+											if (BOOST_PP_SEQ_FOR_EACH_I(CHECK_CONTAINS, 7, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1))))
+#undef CHECK_CONTAINS
+											{
+												if (elem_pores_owner == elem_pores_end)
+													elem_pores_owner = elem_pores_it;
+												else
+												{
+													erosed.erase(erosed_it++);
+													break;
+												}
+											}
+											if (++elem_pores_it == elem_pores_end)
+											{
+												if (elem_pores_owner != elem_pores_end)
+													iters_to_dilate.emplace(&*elem_pores_owner, erosed_it);
+												++erosed_it;
+												break;
+											}
+										}
+									} while (erosed_it != erosed_end);
+									for (auto [pore_ptr, it] : iters_to_dilate)
+										pore_ptr->insert(erosed.extract(it));
+								} while (!erosed.empty());
+								return elemental_pores;
+							}
+							else [[likely]]
+								coords = std::move(*elemental_pores.begin());
+						}
+					}
+				};
+
+				pores_count = 0;
 				old_pores_it_1 = separated_pores.get<tag_multiset>().begin();
 				uint32_t pore_id = old_pores_it_1->first;
 				old_pores_it_2 = separated_pores.get<tag_multiset>().upper_bound(pore_id);
-				for (; old_pores_it_1 != old_pores_it_end;)
+				for (;;)
 				{
-					;
+					coords_t cds;
+					for (; old_pores_it_1 != old_pores_it_2; ++old_pores_it_1)
+						cds.insert(old_pores_it_1->second);
+					if (auto opt_separated_pores = Separator::separate(cds); opt_separated_pores.has_value())
+					{
+						auto sep_pores_it = opt_separated_pores.value().begin(), sep_pores_end = opt_separated_pores.value().end();
+						do
+						{
+							++pores_count;
+							for (auto& coord : *sep_pores_it)
+								m_pores.get<tag_multiset>().insert({pores_count, coord});
+						} while (++sep_pores_it != sep_pores_end);
+					}
+					else
+					{
+						++pores_count;
+						for (auto& coord : cds)
+							m_pores.get<tag_multiset>().insert({pores_count, coord});
+					}
+					if (old_pores_it_1 != old_pores_it_end)
+					{
+						pore_id = old_pores_it_1->first;
+						old_pores_it_2 = separated_pores.get<tag_multiset>().upper_bound(pore_id);
+					}
+					else
+						break;
 				}
 			}
 
