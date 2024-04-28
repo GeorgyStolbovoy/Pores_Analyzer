@@ -100,27 +100,29 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 			bug_workaround = false;
 		if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
 		{
-			pores_count = 1;
+			using coords_t = std::unordered_set<coord_t, boost::hash<coord_t>>;
+
 			m_pores.clear();
 			references.clear();
 
-			using coords_t = std::unordered_set<coord_t, boost::hash<coord_t>>;
 			std::forward_list<ImageWindow::Image_t::view_t::iterator> inspecting;
-			coords_t coords;
+			coords_t coords, background;
+			coords_t::iterator find_it, end_it = coords.end();
+			auto first_pixel = view.at(0, 0);
+			bool is_higher_thres = *first_pixel > threshold;
+
 			for (std::ptrdiff_t i = 1; i < width; ++i)
 				coords.emplace(i, 0);
 			for (std::ptrdiff_t i = 0; i < width; ++i)
 				for (std::ptrdiff_t j = 1; j < height; ++j)
 					coords.emplace(i, j);
-			auto first_pixel = view.at(0, 0);
-			bool is_higher_thres = *first_pixel > threshold;
 			inspecting.push_front(first_pixel);
-			coords_t::iterator find_it, end_it = coords.end();
 			for (auto it = inspecting.begin(), end = inspecting.end();;)
 			{
 				coord_t coord{it->x_pos(), it->y_pos()};
-				m_pores.get<tag_multiset>().insert({pores_count, coord});
-#define INSPECT(r, d, ofs) \
+				background.insert(coord);
+
+#define INSPECT_IMPL(r, d, ofs) \
 					if (find_it = coords.find({coord.first + BOOST_PP_TUPLE_ELEM(0, ofs), coord.second + BOOST_PP_TUPLE_ELEM(1, ofs)}); find_it != end_it) \
 					{ \
 						if (auto iter = *it - (-BOOST_PP_CAT(cl_, BOOST_PP_TUPLE_ELEM(2, ofs))); *iter > threshold == is_higher_thres) \
@@ -129,252 +131,403 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 							coords.erase(find_it); \
 						} \
 					}
-				BOOST_PP_SEQ_FOR_EACH(INSPECT, ~, ((0, 1, b))((1, 1, rb))((1, 0, r))((1, -1, rt))((0, -1, t))((-1, -1, lt))((-1, 0, l))((-1, 1, lb)))
-#undef INSPECT
+#define INSPECT() BOOST_PP_SEQ_FOR_EACH(INSPECT_IMPL, ~, ((0, 1, b))((1, 1, rb))((1, 0, r))((1, -1, rt))((0, -1, t))((-1, -1, lt))((-1, 0, l))((-1, 1, lb)))
+
+				INSPECT()
 				if (++it == end) [[unlikely]]
 				{
 					if (auto coord_it = coords.begin(); coord_it != coords.end())
 					{
 						first_pixel = view.at(coord_it->first, coord_it->second);
 						is_higher_thres = *first_pixel > threshold;
-						inspecting.clear();
 						coords.erase(coord_it);
+						inspecting.clear();
 						inspecting.push_front(first_pixel);
 						it = inspecting.begin();
-						++pores_count;
-					}
-					else
-						break;
-				}
-			}
+						end = inspecting.end();
 
-			auto old_pores_it_1 = m_pores.get<tag_multiset>().begin(), old_pores_it_end = m_pores.get<tag_multiset>().end();
-			uint32_t max_id = old_pores_it_1->first;
-			auto old_pores_it_2 = m_pores.get<tag_multiset>().upper_bound(max_id);
-			for (uint32_t old_id = max_id, square = std::distance(old_pores_it_1, old_pores_it_2);;)
-			{
-				if (old_pores_it_2 == old_pores_it_end) [[unlikely]]
+						uint32_t square = background.size();
+						coords_t coords_without_bg;
+						for (coords_t possible_background;;)
+						{
+							coord.first = it->x_pos(); coord.second = it->y_pos();
+							possible_background.insert(coord);
+							INSPECT()
+							if (++it == end) [[unlikely]]
+							{
+								if (possible_background.size() > square) [[unlikely]]
+								{
+									coords_without_bg.merge(std::move(background));
+									background = std::move(possible_background);
+									square = background.size();
+								}
+								else [[likely]]
+									coords_without_bg.merge(std::move(possible_background));
+								if (coord_it = coords.begin(); coord_it != coords.end())
+								{
+									first_pixel = view.at(coord_it->first, coord_it->second);
+									is_higher_thres = *first_pixel > threshold;
+									coords.erase(coord_it);
+									inspecting.clear();
+									inspecting.push_front(first_pixel);
+									it = inspecting.begin();
+									end = inspecting.end();
+								}
+								else
+								{
+									coords = std::move(coords_without_bg);
+									break;
+								}
+							}
+						}
+					}
 					break;
-				old_pores_it_1 = old_pores_it_2;
-				old_id = old_pores_it_1->first;
-				old_pores_it_2 = m_pores.get<tag_multiset>().upper_bound(old_id);
-				if (uint32_t tmp_square = std::distance(old_pores_it_1, old_pores_it_2); tmp_square > square) [[unlikely]]
-				{
-					max_id = old_id;
-					square = tmp_square;
 				}
+#undef INSPECT
 			}
 
-			pores_container separated_pores;
-			{
-#define SKIP_BACKGROUND(code) \
-					if (old_pores_it_1->first == max_id) [[unlikely]] \
-					{ \
-						old_pores_it_1 = m_pores.get<tag_multiset>().upper_bound(max_id); \
-						if (old_pores_it_1 == old_pores_it_end) [[unlikely]] \
-							code \
-					}
+			// Объединить все соседние кроме фона
+			std::forward_list<coords_t> pores;
 
-				pores_count = 1;
-				old_pores_it_1 = m_pores.get<tag_multiset>().begin();
-				SKIP_BACKGROUND({
-					after_measure();
-					update_image<true>();
-					return;
-				})
-				separated_pores.insert(m_pores.get<tag_multiset>().extract(old_pores_it_1));
-				auto image_view = gil::view(Frame::frame->m_image->image);
-				auto pores_it = separated_pores.get<tag_multiset>().begin(), pores_end = separated_pores.get<tag_multiset>().end();
-				auto loc_picker = image_view.xy_at(pores_it->second.first, pores_it->second.second);
-				float reference = *loc_picker;
-				uint32_t pore_pix_count = 1;
-				for (uint32_t old_id = pores_it->first;;)
+			auto iter_to_pore = pores.before_begin();
+			for (auto coords_it = coords.begin(), coords_end = coords.end(); coords_it != coords_end; coords_it = coords.begin())
+			{
+				iter_to_pore = pores.emplace_after(iter_to_pore);
+				std::forward_list inspecting_coords{iter_to_pore->insert(coords.extract(coords_it)).position};
+				auto insp_it = inspecting_coords.begin(), insp_end = inspecting_coords.end();
+				do
 				{
 #define INSPECT(r, d, ofs) \
-						if (auto find_it = m_pores.get<tag_hashset>().find(coord_t{pores_it->second.first + BOOST_PP_TUPLE_ELEM(0, ofs), pores_it->second.second + BOOST_PP_TUPLE_ELEM(1, ofs)}); \
-							find_it != m_pores.get<tag_hashset>().end() && find_it->first != max_id) \
-						{ \
-							++pore_pix_count; \
-							reference += loc_picker[BOOST_PP_CAT(cl_, BOOST_PP_TUPLE_ELEM(2, ofs))]; \
-							auto node = m_pores.get<tag_hashset>().extract(find_it); \
-							node.value().first = pores_count; \
-							separated_pores.get<tag_multiset>().insert(std::move(node)); \
-						}
-					BOOST_PP_SEQ_FOR_EACH(INSPECT, ~, ((0, 1, b))((1, 1, rb))((1, 0, r))((1, -1, rt))((0, -1, t))((-1, -1, lt))((-1, 0, l))((-1, 1, lb)))
+						if (find_it = coords.find({(*insp_it)->first BOOST_PP_TUPLE_ELEM(0, ofs), (*insp_it)->second BOOST_PP_TUPLE_ELEM(1, ofs)}); find_it != coords_end) \
+							inspecting_coords.insert_after(insp_it, iter_to_pore->insert(coords.extract(find_it)).position);
+					BOOST_PP_SEQ_FOR_EACH(INSPECT, ~, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1)))
 #undef INSPECT
-					if (++pores_it == pores_end) [[unlikely]]
-					{
-						references[pores_count] = reference / pore_pix_count;
-						old_pores_it_1 = m_pores.get<tag_multiset>().lower_bound(old_id);
-						if (old_pores_it_1 == old_pores_it_end) [[unlikely]]
-							break;
-						if (old_id != old_pores_it_1->first)
-						{
-							SKIP_BACKGROUND(break;)
-							old_id = old_pores_it_1->first;
-						}
-						auto node = m_pores.get<tag_multiset>().extract(old_pores_it_1);
-						node.value().first = ++pores_count;
-						pores_it = separated_pores.insert(std::move(node)).position;
-						pore_pix_count = 1;
-						loc_picker = image_view.xy_at(pores_it->second.first, pores_it->second.second);
-						reference = *loc_picker;
-					}
-					else
-						loc_picker = image_view.xy_at(pores_it->second.first, pores_it->second.second);
-				}
-				old_pores_it_1 = m_pores.get<tag_multiset>().begin();
-				reference = *image_view.at(old_pores_it_1->second.first, old_pores_it_1->second.second);
-				max_id = ++pores_count;
-				auto node = m_pores.get<tag_multiset>().extract(old_pores_it_1++);
-				node.value().first = max_id;
-				for (pore_pix_count = 1;; ++pore_pix_count)
-				{
-					separated_pores.insert(std::move(node));
-					if (old_pores_it_1 == old_pores_it_end) [[unlikely]]
-						break;
-					reference += *image_view.at(old_pores_it_1->second.first, old_pores_it_1->second.second);
-					node = m_pores.get<tag_multiset>().extract(old_pores_it_1++);
-					node.value().first = max_id;
-				}
-				references[max_id] = reference / pore_pix_count;
+				} while (++insp_it != insp_end);
 			}
 
 			// Определить слипшиеся поры
+			class Separation
 			{
-				struct Separator
+				struct Group;
+				using single_pore_t = std::pair<coords_t, float>;
+				using maybe_group_t = std::variant<single_pore_t, Group>;
+				using pores_list_t = std::forward_list<coords_t>;
+				struct Group
 				{
-					static std::optional<std::forward_list<coords_t>> separate(coords_t& coords)
+					std::forward_list<maybe_group_t> m_elemental_pores;
+					coords_t m_erosed;
+					uint16_t sep_step; 
+
+					Group(uint16_t sep_step) : sep_step(sep_step) {}
+					Group(Group&&) = default;
+					Group& operator=(Group&& other) = default;
+
+					std::optional<pores_list_t> filter_and_dilate()
 					{
-						std::forward_list<coords_t> elemental_pores;
-						coords_t erosed;
-
-						for (;;)
+						if (filter(get_max_k()))
 						{
-							std::vector<coords_t::iterator> iters_to_erosed;
-							for (auto coords_it = coords.begin(), coords_end = coords.end(); coords_it != coords_end;)
-							{
-								if (!coords.contains({coords_it->first, coords_it->second + 1}) || !coords.contains({coords_it->first + 1, coords_it->second})
-									|| !coords.contains({coords_it->first, coords_it->second - 1}) || !coords.contains({coords_it->first - 1, coords_it->second})) [[unlikely]]
-									iters_to_erosed.push_back(coords_it);
-							}
-							if (iters_to_erosed.size() == coords.size()) [[unlikely]]
-							{
-								coords.merge(std::move(erosed));
+							if (auto it = m_elemental_pores.begin(), end = m_elemental_pores.end(); it == end)
 								return std::nullopt;
-							}
-							for (auto it : iters_to_erosed)
-								erosed.insert(coords.extract(it));
-
-							for (auto coords_end = coords.end();;)
-							{
-								coords_t elemental_pore;
-								elemental_pore.insert(coords.extract(coords.begin()));
-								std::forward_list inspecting{elemental_pore.begin()};
-								auto insp_it = inspecting.begin(), insp_end = inspecting.end();
-								do
+							else if (std::next(it) == end)
+								return std::visit([this, &it]<class T>(T&& x) -> std::optional<pores_list_t>
 								{
-#define INSPECT(r, d, ofs)				if (auto find_it = coords.find({(*insp_it)->first BOOST_PP_TUPLE_ELEM(0, ofs), (*insp_it)->second BOOST_PP_TUPLE_ELEM(1, ofs)}); find_it != coords_end) \
-											inspecting.insert_after(insp_it, elemental_pore.insert(coords.extract(find_it)).position);
-									BOOST_PP_SEQ_FOR_EACH(INSPECT, ~, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1)))
-#undef INSPECT
-								} while (++insp_it != insp_end);
-								elemental_pores.push_front(std::move(elemental_pore));
-								if (coords.empty())
-									break;
-							}
-
-							if (std::distance(elemental_pores.begin(), elemental_pores.end()) > 1) [[unlikely]]
-							{
-								for (auto elem_pores_it = elemental_pores.before_begin(), elem_pores_end = elemental_pores.end();;)
-								{
-									if (auto next_it = std::next(elem_pores_it); next_it != elem_pores_end)
+									if constexpr (std::is_same_v<std::decay_t<T>, single_pore_t>)
 									{
-										if (auto opt_separated_pores = separate(*next_it); opt_separated_pores.has_value())
-										{
-											elemental_pores.erase_after(elem_pores_it);
-											elemental_pores.splice_after(elem_pores_it++, std::move(opt_separated_pores.value()));
-										}
-										else
-											++elem_pores_it;
+										m_erosed.merge(std::move(x.first));
+										return std::nullopt;
 									}
 									else
-										break;
-								}
-								do
-								{
-									std::unordered_multimap<coords_t*, coords_t::iterator> iters_to_dilate;
-									auto erosed_it = erosed.begin(), erosed_end = erosed.end();
-									do
 									{
-										for (auto elem_pores_it = elemental_pores.begin(), elem_pores_end = elemental_pores.end(), elem_pores_owner = elem_pores_end;;)
+										m_erosed.merge(std::move(x.m_erosed));
+										m_elemental_pores.splice_after(it, std::move(x.m_elemental_pores));
+										m_elemental_pores.pop_front();
+										return dilate();
+									}
+								}, *it);
+						}
+						return dilate();
+					}
+
+				private:
+					float get_max_k()
+					{
+						float k = 0;
+						for (auto& maybe_group : m_elemental_pores)
+							std::visit([this, &k]<class T>(T&& x)
+							{
+								if constexpr (std::is_same_v<std::decay_t<T>, single_pore_t>)
+								{
+									if (x.second > k)
+										k = x.second;
+								}
+								else if (float subgroup_k = x.get_max_k(); subgroup_k > k)
+									k = subgroup_k;
+							}, maybe_group);
+						return k;
+					}
+
+					bool filter(float k)
+					{
+						bool need_review = false;
+						auto prev_it = m_elemental_pores.before_begin(), cur_it = std::next(prev_it), end_it = m_elemental_pores.end();
+						do
+							std::visit([&, this, k]<class T>(T&& x)
+							{
+								if constexpr (std::is_same_v<std::decay_t<T>, single_pore_t>)
+								{
+									if (x.second * 10 < k)
+									{
+										m_erosed.merge(std::move(x.first));
+										cur_it = m_elemental_pores.erase_after(prev_it);
+										need_review = true;
+									}
+									else
+									{
+										++prev_it;
+										++cur_it;
+									}
+								}
+								else
+								{
+									if (x.filter(k))
+									{
+										if (auto tmp_it = x.m_elemental_pores.begin(), tmp_end = x.m_elemental_pores.end(); tmp_it == tmp_end)
 										{
-#define CHECK_CONTAINS(r, d, i, ofs) elem_pores_it->contains({erosed_it->first BOOST_PP_TUPLE_ELEM(0, ofs), erosed_it->second BOOST_PP_TUPLE_ELEM(1, ofs)}) BOOST_PP_EXPR_IF(BOOST_PP_NOT_EQUAL(d, i), ||)
-											if (BOOST_PP_SEQ_FOR_EACH_I(CHECK_CONTAINS, 7, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1))))
-#undef CHECK_CONTAINS
+											if (float replacing_k = x.m_erosed.size()/float(x.sep_step); replacing_k * 10 < k)
 											{
-												if (elem_pores_owner == elem_pores_end)
-													elem_pores_owner = elem_pores_it;
+												m_erosed.merge(std::move(x.m_erosed));
+												need_review = true;
+											}
+											else
+											{
+												coords_t replacing_pore{std::move(x.m_erosed)};
+												prev_it = m_elemental_pores.emplace_after(prev_it, single_pore_t{std::move(replacing_pore), replacing_k});
+											}
+											cur_it = m_elemental_pores.erase_after(prev_it);
+										}
+										else if (std::next(tmp_it) == tmp_end)
+											std::visit([&, this]<class V>(V&& v)
+											{
+												if constexpr (std::is_same_v<std::decay_t<V>, single_pore_t>)
+												{
+													coords_t replacing_pore{std::move(x.m_erosed)};
+													replacing_pore.merge(std::move(v.first));
+													prev_it = m_elemental_pores.emplace_after(prev_it, single_pore_t{std::move(replacing_pore), replacing_pore.size()/float(x.sep_step)});
+													cur_it = m_elemental_pores.erase_after(prev_it);
+												}
 												else
 												{
-													erosed.erase(erosed_it++);
-													break;
+													x.m_erosed.merge(std::move(v.m_erosed));
+													x.m_elemental_pores.splice_after(tmp_it, std::move(v.m_elemental_pores));
+													x.m_elemental_pores.pop_front();
+													++prev_it;
+													++cur_it;
 												}
-											}
-											if (++elem_pores_it == elem_pores_end)
+											}, *tmp_it);
+									}
+									else
+									{
+										++prev_it;
+										++cur_it;
+									}
+								}
+							}, *cur_it);
+						while (cur_it != end_it);
+						return need_review;
+					}
+
+					pores_list_t dilate()
+					{
+						pores_list_t ret_list, from_subgroups_list;
+
+						for (auto& elem_pore : m_elemental_pores)
+						{
+							std::visit([&, this]<class T>(T&& x)
+							{
+								if constexpr (std::is_same_v<std::decay_t<T>, single_pore_t>)
+									ret_list.push_front(std::move(x.first));
+								else
+									from_subgroups_list.splice_after(from_subgroups_list.before_begin(), x.dilate());
+							}, elem_pore);
+						}
+
+						if (!ret_list.empty())
+							do
+							{
+								std::unordered_multimap<coords_t*, coords_t::iterator> iters_to_dilate;
+								auto erosed_it = m_erosed.begin(), erosed_end = m_erosed.end();
+								do
+								{
+									for (auto elem_pores_it = ret_list.begin(), elem_pores_end = ret_list.end(), elem_pores_owner = elem_pores_end;;)
+									{
+#define CHECK_CONTAINS(r, d, i, ofs) elem_pores_it->contains({erosed_it->first BOOST_PP_TUPLE_ELEM(0, ofs), erosed_it->second BOOST_PP_TUPLE_ELEM(1, ofs)}) BOOST_PP_EXPR_IF(BOOST_PP_NOT_EQUAL(d, i), ||)
+										if (BOOST_PP_SEQ_FOR_EACH_I(CHECK_CONTAINS, 7, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1))))
+#undef CHECK_CONTAINS
+										{
+											if (elem_pores_owner == elem_pores_end)
+												elem_pores_owner = elem_pores_it;
+											else
 											{
-												if (elem_pores_owner != elem_pores_end)
-													iters_to_dilate.emplace(&*elem_pores_owner, erosed_it);
-												++erosed_it;
+												m_erosed.erase(erosed_it++);
 												break;
 											}
 										}
-									} while (erosed_it != erosed_end);
-									for (auto [pore_ptr, it] : iters_to_dilate)
-										pore_ptr->insert(erosed.extract(it));
-								} while (!erosed.empty());
-								return elemental_pores;
-							}
-							else [[likely]]
-								coords = std::move(*elemental_pores.begin());
-						}
+										if (++elem_pores_it == elem_pores_end)
+										{
+											if (elem_pores_owner != elem_pores_end)
+												iters_to_dilate.emplace(&*elem_pores_owner, erosed_it);
+											++erosed_it;
+											break;
+										}
+									}
+								} while (erosed_it != erosed_end);
+								if (auto dilate_it = iters_to_dilate.begin(), dilate_end = iters_to_dilate.end(); dilate_it != dilate_end)
+									do
+										dilate_it->first->insert(m_erosed.extract(dilate_it->second));
+									while (++dilate_it != dilate_end);
+								else
+									break;
+							} while (!m_erosed.empty());
+
+						ret_list.splice_after(ret_list.before_begin(), std::move(from_subgroups_list));
+						return ret_list;
 					}
 				};
 
-				pores_count = 0;
-				old_pores_it_1 = separated_pores.get<tag_multiset>().begin();
-				uint32_t pore_id = old_pores_it_1->first;
-				old_pores_it_2 = separated_pores.get<tag_multiset>().upper_bound(pore_id);
-				for (;;)
+				static std::optional<Group> separate_to_group(coords_t& coords, uint16_t sep_step = 1)
 				{
-					coords_t cds;
-					for (; old_pores_it_1 != old_pores_it_2; ++old_pores_it_1)
-						cds.insert(old_pores_it_1->second);
-					if (auto opt_separated_pores = Separator::separate(cds); opt_separated_pores.has_value())
+					// Debug
+					if (coords.size() == 16684)
 					{
-						auto sep_pores_it = opt_separated_pores.value().begin(), sep_pores_end = opt_separated_pores.value().end();
-						do
-						{
-							++pores_count;
-							for (auto& coord : *sep_pores_it)
-								m_pores.get<tag_multiset>().insert({pores_count, coord});
-						} while (++sep_pores_it != sep_pores_end);
+						Sleep(0);
 					}
-					else
+
+					Group group{sep_step};
+
+					for (;;)
+					{
+						++sep_step;
+						std::vector<coords_t::iterator> iters_to_erosed;
+						for (auto coords_it = coords.begin(), coords_end = coords.end(); coords_it != coords_end; ++coords_it)
+						{
+							if (!coords.contains({coords_it->first, coords_it->second + 1}) || !coords.contains({coords_it->first + 1, coords_it->second})
+								|| !coords.contains({coords_it->first, coords_it->second - 1}) || !coords.contains({coords_it->first - 1, coords_it->second})) [[unlikely]]
+								iters_to_erosed.push_back(coords_it);
+						}
+						if (iters_to_erosed.size() == coords.size()) [[unlikely]]
+						{
+							coords.merge(std::move(group.m_erosed));
+							return std::nullopt;
+						}
+						for (auto it : iters_to_erosed)
+							group.m_erosed.insert(coords.extract(it));
+
+						for (auto coords_end = coords.end();;)
+						{
+							coords_t elemental_pore;
+							elemental_pore.insert(coords.extract(coords.begin()));
+							std::forward_list inspecting{elemental_pore.begin()};
+							auto insp_it = inspecting.begin(), insp_end = inspecting.end();
+							do
+							{
+#define INSPECT(r, d, ofs)			if (auto find_it = coords.find({(*insp_it)->first BOOST_PP_TUPLE_ELEM(0, ofs), (*insp_it)->second BOOST_PP_TUPLE_ELEM(1, ofs)}); find_it != coords_end) \
+										inspecting.insert_after(insp_it, elemental_pore.insert(coords.extract(find_it)).position);
+								BOOST_PP_SEQ_FOR_EACH(INSPECT, ~, ((+0, +1))((+1, +1))((+1, +0))((+1, -1))((+0, -1))((-1, -1))((-1, +0))((-1, +1)))
+#undef INSPECT
+							} while (++insp_it != insp_end);
+							if (coords.empty())
+							{
+								if (group.m_elemental_pores.empty())
+								{
+									coords = std::move(elemental_pore);
+									break;
+								}
+								group.m_elemental_pores.emplace_front(single_pore_t{std::move(elemental_pore), elemental_pore.size() / float(sep_step)});
+								auto elem_pores_end = group.m_elemental_pores.end(), prev_it = group.m_elemental_pores.before_begin(), next_it = std::next(prev_it);
+#define ADVANCE_SEPARATION(chk) \
+									if (auto opt_separated_pores = separate_to_group(std::get<single_pore_t>(*next_it).first, sep_step); opt_separated_pores.has_value()) \
+									{ \
+										++next_it; \
+										group.m_elemental_pores.erase_after(prev_it); \
+										prev_it = group.m_elemental_pores.insert_after(prev_it, std::move(opt_separated_pores.value())); \
+										BOOST_PP_EXPR_IF(chk, if (next_it == elem_pores_end) \
+											break;) \
+									} \
+									else \
+									{ \
+										++next_it; \
+										BOOST_PP_EXPR_IF(chk, if (next_it == elem_pores_end) [[unlikely]] \
+											break;) \
+										++prev_it; \
+									}
+
+								ADVANCE_SEPARATION(0)
+								for (;;)
+									ADVANCE_SEPARATION(1)
+#undef ADVANCE_SEPARATION
+								return group;
+							}
+							group.m_elemental_pores.emplace_front(single_pore_t{std::move(elemental_pore), elemental_pore.size()/float(sep_step)});
+						}
+					}
+				}
+
+			public:
+				static std::optional<pores_list_t> separate(coords_t& coords)
+				{
+					if (auto opt_separated_pores = separate_to_group(coords); opt_separated_pores.has_value())
+					{
+						if (auto opt_true_pores = opt_separated_pores.value().filter_and_dilate(); opt_true_pores.has_value())
+							return opt_true_pores.value();
+						else
+						{
+							coords = std::move(opt_separated_pores.value().m_erosed);
+							return std::nullopt;
+						}
+					}
+					return std::nullopt;
+				}
+			};
+
+			pores_count = 0;
+			auto image_view = gil::view(Frame::frame->m_image->image);
+			for (coords_t& cds : pores)
+			{
+				if (auto opt_separated_pores = Separation::separate(cds); opt_separated_pores.has_value())
+				{
+					auto sep_pores_it = opt_separated_pores.value().begin(), sep_pores_end = opt_separated_pores.value().end();
+					do
 					{
 						++pores_count;
-						for (auto& coord : cds)
+						float reference = 0.0f;
+						for (auto& coord : *sep_pores_it)
+						{
 							m_pores.get<tag_multiset>().insert({pores_count, coord});
-					}
-					if (old_pores_it_1 != old_pores_it_end)
+							reference += *image_view.xy_at(coord.first, coord.second);
+						}
+						references[pores_count] = reference / sep_pores_it->size();
+					} while (++sep_pores_it != sep_pores_end);
+				}
+				else
+				{
+					++pores_count;
+					float reference = 0.0f;
+					for (auto& coord : cds)
 					{
-						pore_id = old_pores_it_1->first;
-						old_pores_it_2 = separated_pores.get<tag_multiset>().upper_bound(pore_id);
+						m_pores.get<tag_multiset>().insert({pores_count, coord});
+						reference += *image_view.xy_at(coord.first, coord.second);
 					}
-					else
-						break;
+					references[pores_count] = reference / cds.size();
 				}
 			}
+			++pores_count;
+			float reference = 0.0f;
+			for (auto& coord : background)
+			{
+				m_pores.get<tag_multiset>().insert({pores_count, coord});
+				reference += *image_view.xy_at(coord.first, coord.second);
+			}
+			references[pores_count] = reference / background.size();
 
 			after_measure();
 			update_image<true>();
