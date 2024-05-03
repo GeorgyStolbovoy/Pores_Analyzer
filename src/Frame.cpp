@@ -20,7 +20,10 @@ void Frame::OnLoad(wxCommandEvent& event)
     if (dlg.ShowModal() == wxID_OK)
     {
         m_image->Load(dlg.GetPath());
-        m_measure->NewMeasure(gil::view(m_image->image));
+        auto view = gil::view(m_image->image);
+        m_measure->NewMeasure(view);
+        if (uint8_t side = m_statistic->settings_window->m_choice_side->GetSelection(); side != 0)
+			m_statistic->settings_window->metric_coef = m_statistic->settings_window->m_spinctrl_coef->GetValue() / (side == 1 ? view.width() : view.height());
         m_curves->Enable(true);
         m_curves->path_histogram = std::nullopt;
         Refresh();

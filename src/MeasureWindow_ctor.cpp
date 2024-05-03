@@ -8,56 +8,19 @@
 
 MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
 {
-	wxBoxSizer* sizer_measure = new wxBoxSizer( wxVERTICAL );
+	wxBoxSizer *sizer_measure = new wxBoxSizer( wxVERTICAL ), *sizer_horizontal = new wxBoxSizer( wxHORIZONTAL ), *sizer_vertical = new wxBoxSizer( wxVERTICAL );
 
-	wxBoxSizer* sizer_horizontal = new wxBoxSizer( wxHORIZONTAL );
-
-	wxBoxSizer* sizer_vertical = new wxBoxSizer( wxVERTICAL );
-
-	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Пороговая разность")), wxHORIZONTAL);
-	m_slider_algorithm = new wxSlider( this, slider_algorithm_id, diff, 1, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_algorithm, 0, wxALL|wxEXPAND|wxCENTRE, 5);
-	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Тест")), wxHORIZONTAL);
-	m_slider_test = new wxSlider( this, slider_test_id, 50, 0, 100, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_test, 0, wxALL|wxEXPAND|wxCENTRE, 5);
-	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Порог")), wxHORIZONTAL);
+	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Порог")), wxHORIZONTAL);
 	m_slider_thres = new wxSlider( this, slider_thres_id, threshold, 0, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_thres, 0, wxALL|wxEXPAND|wxCENTRE, 5);
+	static_box_sizer->Add(m_slider_thres, 1, wxALL|wxEXPAND|wxCENTRE, 5);
 	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
 
-	sizer_horizontal->Add(sizer_vertical, 0, wxEXPAND, 5);
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Чувствительность поиска слипшихся пор")), wxHORIZONTAL);
+	m_slider_amount = new wxSlider( this, slider_amount_id, amount, 2, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_amount, 1, wxALL|wxEXPAND|wxCENTRE, 5);
+	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
 
-	sizer_vertical = new wxBoxSizer( wxVERTICAL );
-
-	m_toggle_background = new wxToggleButton(this, toggle_background_id, wxT("Автоудаление фона (самого большого элемента)"));
-	m_toggle_background->SetValue(true);
-	sizer_vertical->Add( m_toggle_background, 0, wxALL, 5 );
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Метрика")), wxHORIZONTAL);
-
-	wxString m_choice2Choices[]{wxT("(Не указывать)"), wxT("Длина"), wxT("Ширина")};
-	wxChoice* m_choice2 = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, std::size(m_choice2Choices), m_choice2Choices);
-	m_choice2->SetSelection(0);
-	static_box_sizer->Add(m_choice2, 0, wxALL, 5);
-
-	wxSpinCtrlDouble* m_spinCtrlDouble1 = new wxSpinCtrlDouble( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 1e-05, 100, 1, 0.1 );
-	m_spinCtrlDouble1->SetDigits( 5 );
-	static_box_sizer->Add( m_spinCtrlDouble1, 1, wxALL, 5 );
-
-	wxString m_choice3Choices[]{wxT("м"), wxT("дм"), wxT("см"), wxT("мм"), wxT("мкм"), wxT("нм"), wxT("пм")};;
-	wxChoice* m_choice3 = new wxChoice( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, std::size(m_choice3Choices), m_choice3Choices);
-	m_choice3->SetSelection( 0 );
-	static_box_sizer->Add( m_choice3, 0, wxALL, 5 );
-
-	sizer_vertical->Add( static_box_sizer, 1, wxEXPAND, 5 );
-
-	sizer_horizontal->Add(sizer_vertical, 0, wxEXPAND, 5);
-
-	sizer_measure->Add( sizer_horizontal, 0, wxEXPAND, 5 );
+	sizer_measure->Add( sizer_vertical, 0, wxEXPAND, 5 );
 
 	collapses_sizer = new wxBoxSizer( wxHORIZONTAL );
 
@@ -102,8 +65,6 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 	wxWindow *win_pane_color = collpane_color->GetPane();
 
 	paneSz = new wxBoxSizer( wxVERTICAL );
-
-	sizer_horizontal = new wxBoxSizer(wxHORIZONTAL);
 
 	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_color, wxID_ANY, wxT("Границы пор")), wxVERTICAL);
 	m_toggle_boundaries = new wxToggleButton(win_pane_color, toggle_boundaries_id, wxT("Выделить границы пор"));
@@ -179,6 +140,7 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 
 	sizer_measure->Add(pane_sizer, 0, wxEXPAND, 5);
 
+	sizer_measure->SetMinSize(paneSz->GetMinSize().GetWidth() + 4*wxSystemSettings::GetMetric(wxSystemMetric::wxSYS_BORDER_X), -1);
 	SetSizer(sizer_measure);
 	Layout();
 }

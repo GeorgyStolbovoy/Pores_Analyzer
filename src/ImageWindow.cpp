@@ -448,6 +448,15 @@ void ImageWindow::deselect_pore(uint32_t id)
         m_sel_session = std::nullopt;
 }
 
+void ImageWindow::update_image(bool reset_selection)
+{
+    marked_image = wxNullImage;
+    if (reset_selection)
+        m_sel_session = std::nullopt;
+    Refresh();
+    Update();
+}
+
 ImageWindow::SelectionSession::SelectionSession(ImageWindow* owner)
 	: bufsize(owner->image.width()*owner->image.height()), selected_pores(new unsigned char[bufsize*3]), alpha(new unsigned char[bufsize]{})
 {

@@ -6,6 +6,9 @@
 #include <wx/checkbox.h>
 #include <wx/aui/aui.h>
 #include <wx/graphics.h>
+#include <wx/tglbtn.h>
+#include <wx/choice.h>
+#include <wx/spinctrl.h>
 #include <array>
 #include <boost/preprocessor.hpp>
 
@@ -30,7 +33,7 @@ class StatisticWindow : public wxWindow
 	{
 		using row_t = std::tuple<wxString, float>;
 		enum : uint8_t {PARAM_NAME, PARAM_VALUE};
-		std::array<row_t, 10> container;
+		std::array<row_t, 6> container;
 
 		CommonStatisticList(StatisticWindow* parent);
 		wxString OnGetItemText(long item, long column) const override;
@@ -129,13 +132,20 @@ class StatisticWindow : public wxWindow
 
 	struct SettingsWindow : wxWindow
 	{
-		wxCheckBox *m_checkBox_color, *m_checkBox_deleted, *m_checkBox_filtered;
-		static wxWindowID checkBox_color_id, checkBox_deleted_id, checkBox_filtered_id;
+		wxCheckBox *m_checkBox_deleted, *m_checkBox_filtered;
+		wxToggleButton *m_toggle_background;
+		wxChoice *m_choice_side, *m_choice_metric;
+		wxSpinCtrlDouble* m_spinctrl_coef;
+		static wxWindowID checkBox_color_id, checkBox_deleted_id, checkBox_filtered_id, toggle_background_id, choice_side_id, choice_metric_id, spinctrl_coef_id;
+
+		double metric_coef = 1.0;
 
 		SettingsWindow(wxWindow* parent);
-		void OnDistributionColor(wxCommandEvent& event);
+		void OnDeleteBackground(wxCommandEvent& event);
 		void OnShowDeleted(wxCommandEvent& event);
 		void OnShowFiltered(wxCommandEvent& event);
+		void OnChoiceSide(wxCommandEvent& event);
+		void OnMetricCoefChanged(wxSpinDoubleEvent& event);
 
 	private:
 		StatisticWindow* parent_statwindow;

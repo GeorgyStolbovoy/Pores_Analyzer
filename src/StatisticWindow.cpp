@@ -341,10 +341,15 @@ StatisticWindow::CommonStatisticList::CommonStatisticList(StatisticWindow* paren
 wxString StatisticWindow::CommonStatisticList::OnGetItemText(long item, long column) const
 {
 	char buf[16];
+	float k = 1.0f;
+	if (item == 0 || item == 1)
+		k = parent_statwindow->settings_window->metric_coef;
+	else if (item == 4 || item == 5)
+		k = parent_statwindow->settings_window->metric_coef * parent_statwindow->settings_window->metric_coef;
 	switch (column)
 	{
 		case PARAM_NAME: return std::get<PARAM_NAME>(container[item]);
-		case PARAM_VALUE: *std::to_chars(buf, buf + 16, std::get<PARAM_VALUE>(container[item])).ptr = '\0'; return {buf};
+		case PARAM_VALUE: *std::to_chars(buf, buf + 16, k*std::get<PARAM_VALUE>(container[item])).ptr = '\0'; return {buf};
 	}
 	__assume(false);
 }
@@ -419,8 +424,11 @@ wxString StatisticWindow::PoresStatisticList::OnGetItemText(long item, long colu
 			[[likely]] default:  *std::to_chars(buf, buf + 16, std::get<ID>(container[item_to_index(item)])).ptr = '\0'; return {buf};
 			}
 		}
-#define CASE_NUMBER(r, x, value) case value: if (parent_statwindow->num_considered > 0 || item > 3) {*std::to_chars(buf, buf + 16, std::get<value>(container[item_to_index(item)])).ptr = '\0'; return {buf};} else return {'-'};
-		BOOST_PP_SEQ_FOR_EACH(CASE_NUMBER, ~, PORES_CALCULATING_PARAMS)
+#define COEFFICIENTS (2)(0)(1)(1)(1)(1)(0)(0)(1)(1)(0)(0)(0)(0)
+#define CASE_NUMBER(r, x, i, value) case value: if (parent_statwindow->num_considered > 0 || item > 3) {*std::to_chars(buf, buf + 16, float( \
+			BOOST_PP_IF(BOOST_PP_EQUAL(BOOST_PP_SEQ_ELEM(i, COEFFICIENTS), 2), x*x *, BOOST_PP_EXPR_IF(BOOST_PP_EQUAL(BOOST_PP_SEQ_ELEM(i, COEFFICIENTS), 1), x *)) \
+			std::get<value>(container[item_to_index(item)]))).ptr = '\0'; return {buf};} else return {'-'};
+		BOOST_PP_SEQ_FOR_EACH_I(CASE_NUMBER, parent_statwindow->settings_window->metric_coef, PORES_CALCULATING_PARAMS)
 	}
 	__assume(false);
 }
@@ -809,14 +817,19 @@ void StatisticWindow::DistributionWindow::set_correct_font_size(wxGraphicsContex
 // SettingsWindow
 
 wxWindowID
-	StatisticWindow::SettingsWindow::checkBox_color_id = wxWindow::NewControlId(),
 	StatisticWindow::SettingsWindow::checkBox_deleted_id = wxWindow::NewControlId(),
-	StatisticWindow::SettingsWindow::checkBox_filtered_id = wxWindow::NewControlId();
+	StatisticWindow::SettingsWindow::checkBox_filtered_id = wxWindow::NewControlId(),
+	StatisticWindow::SettingsWindow::toggle_background_id = wxWindow::NewControlId(),
+	StatisticWindow::SettingsWindow::choice_side_id = wxWindow::NewControlId(),
+	StatisticWindow::SettingsWindow::choice_metric_id = wxWindow::NewControlId(),
+	StatisticWindow::SettingsWindow::spinctrl_coef_id = wxWindow::NewControlId();
 
 wxBEGIN_EVENT_TABLE(StatisticWindow::SettingsWindow, wxWindow)
-	EVT_CHECKBOX(StatisticWindow::SettingsWindow::checkBox_color_id, StatisticWindow::SettingsWindow::OnDistributionColor)
 	EVT_CHECKBOX(StatisticWindow::SettingsWindow::checkBox_deleted_id, StatisticWindow::SettingsWindow::OnShowDeleted)
 	EVT_CHECKBOX(StatisticWindow::SettingsWindow::checkBox_filtered_id, StatisticWindow::SettingsWindow::OnShowFiltered)
+	EVT_TOGGLEBUTTON(StatisticWindow::SettingsWindow::toggle_background_id, StatisticWindow::SettingsWindow::OnDeleteBackground)
+	EVT_CHOICE(StatisticWindow::SettingsWindow::choice_side_id, StatisticWindow::SettingsWindow::OnChoiceSide)
+	EVT_SPINCTRLDOUBLE(StatisticWindow::SettingsWindow::spinctrl_coef_id, StatisticWindow::SettingsWindow::OnMetricCoefChanged)
 wxEND_EVENT_TABLE()
 
 StatisticWindow::SettingsWindow::SettingsWindow(wxWindow* parent) : wxWindow(parent, wxID_ANY), parent_statwindow(static_cast<StatisticWindow*>(parent))
@@ -825,21 +838,102 @@ StatisticWindow::SettingsWindow::SettingsWindow(wxWindow* parent) : wxWindow(par
 
 	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Настройка")), wxVERTICAL);
 
-	m_checkBox_color = new wxCheckBox(this, checkBox_color_id, wxT("Раскраска пор под цвет интервалов распределения"));
-	static_box_sizer->Add( m_checkBox_color, 0, wxALL, 5 );
-
 	m_checkBox_deleted = new wxCheckBox(this, checkBox_deleted_id, wxT("Показывать в списке удалённые поры"));
 	static_box_sizer->Add( m_checkBox_deleted, 0, wxALL, 5 );
 
 	m_checkBox_filtered = new wxCheckBox(this, checkBox_filtered_id, wxT("Показывать в списке отфильтрованные поры"));
 	static_box_sizer->Add( m_checkBox_filtered, 0, wxALL, 5 );
 
+	m_toggle_background = new wxToggleButton(this, toggle_background_id, wxT("Автоудаление фона (самого большого элемента)"));
+	m_toggle_background->SetValue(true);
+	static_box_sizer->Add(m_toggle_background, 0, wxALL, 5);
+
+	wxStaticBoxSizer* sizer_metric = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Метрика")), wxHORIZONTAL);
+
+	wxString m_choice2Choices[]{wxT("(Не указывать)"), wxT("Ширина"), wxT("Высота")};
+	m_choice_side = new wxChoice(this, choice_side_id, wxDefaultPosition, wxDefaultSize, std::size(m_choice2Choices), m_choice2Choices);
+	m_choice_side->SetSelection(0);
+	sizer_metric->Add(m_choice_side, 0, wxALL, 5);
+
+	m_spinctrl_coef = new wxSpinCtrlDouble( this, spinctrl_coef_id, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 1e-05, 99999.99999, 1, 0.1 );
+	m_spinctrl_coef->SetDigits(5);
+	sizer_metric->Add(m_spinctrl_coef, 1, wxALL, 5);
+
+	wxString m_choice3Choices[]{wxT("м"), wxT("дм"), wxT("см"), wxT("мм"), wxT("мкм"), wxT("нм"), wxT("пм")};
+	m_choice_metric = new wxChoice( this, choice_metric_id, wxDefaultPosition, wxDefaultSize, std::size(m_choice3Choices), m_choice3Choices);
+	m_choice_metric->SetSelection( 0 );
+	sizer_metric->Add( m_choice_metric, 0, wxALL, 5 );
+
+	static_box_sizer->Add(sizer_metric, 0, wxEXPAND, 5 );
+
 	SetSizer(static_box_sizer);
 }
 
-void StatisticWindow::SettingsWindow::OnDistributionColor(wxCommandEvent& event)
+void StatisticWindow::SettingsWindow::OnDeleteBackground(wxCommandEvent& event)
 {
-	;
+	if (gil::view(Frame::frame->m_image->image).empty()) [[unlikely]]
+		return;
+
+	if (uint32_t id_to_delete = Frame::frame->m_measure->pores_count; event.IsChecked())
+	{
+		if (Frame::frame->m_measure->m_deleted_pores.insert(id_to_delete).second)
+		{
+			if (Frame::frame->m_measure->m_selected_pores.contains(id_to_delete)) [[unlikely]]
+				Frame::frame->m_image->deselect_pore(id_to_delete);
+			if (auto find_it = Frame::frame->m_measure->m_filtered_pores.find(id_to_delete); find_it == Frame::frame->m_measure->m_filtered_pores.end()) [[unlikely]]
+				parent_statwindow->pores_statistic_list->on_pore_deleted(id_to_delete);
+			else
+			{
+				Frame::frame->m_measure->m_filtered_pores.erase(find_it);
+				parent_statwindow->pores_statistic_list->attributes[id_to_delete].SetBackgroundColour(0xAAAAEE);
+
+				{
+#define EXTREMES(z, i, _) float slider_extreme_min_##i = std::numeric_limits<float>::max(); float slider_extreme_max_##i = std::numeric_limits<float>::min();
+					BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(SLIDERS_ACTUAL), EXTREMES, ~)
+					for (auto it = parent_statwindow->pores_statistic_list->container.begin() + 4, end = parent_statwindow->pores_statistic_list->container.end(); it != end; ++it)
+					{
+						if (!Frame::frame->m_measure->m_deleted_pores.contains(std::get<StatisticWindow::PoresStatisticList::ID>(*it)))
+						{
+#define CHECK_EXTREMES(z, d, i, e) \
+								if (float pore_value = std::get<StatisticWindow::PoresStatisticList::e>(*it); pore_value < slider_extreme_min_##i) [[unlikely]] \
+									slider_extreme_min_##i = pore_value; \
+								else [[likely]] if (pore_value > slider_extreme_max_##i) [[unlikely]] \
+									slider_extreme_max_##i = pore_value;
+							BOOST_PP_SEQ_FOR_EACH_I(CHECK_EXTREMES, ~, PARAMS_NAMES)
+						}
+					}
+					bool need_refresh_min, need_refresh_max;
+
+#define REFRESH_EXTREMES(z, d, i, e) \
+					need_refresh_min = Frame::frame->m_measure->e->min != slider_extreme_min_##i, need_refresh_max = Frame::frame->m_measure->e->max != slider_extreme_max_##i; \
+					if (need_refresh_min) \
+						Frame::frame->m_measure->e->set_min(slider_extreme_min_##i); \
+					if (need_refresh_max) \
+						Frame::frame->m_measure->e->set_max(slider_extreme_max_##i); \
+					if (need_refresh_min || need_refresh_max) \
+					{ \
+						Frame::frame->m_measure->e->Refresh(); \
+						Frame::frame->m_measure->e->Update(); \
+					}
+					BOOST_PP_SEQ_FOR_EACH_I(REFRESH_EXTREMES, ~, SLIDERS_ACTUAL)
+				}
+
+				parent_statwindow->pores_statistic_list->Refresh();
+				parent_statwindow->pores_statistic_list->Update();
+				return;
+			}
+		}
+		else
+			return;
+	}
+	else
+	{
+		if (Frame::frame->m_measure->m_deleted_pores.erase(id_to_delete) > 0)
+			parent_statwindow->pores_statistic_list->on_pore_recovered(id_to_delete);
+		else
+			return;
+	}
+	Frame::frame->m_image->update_image(false);
 }
 
 void StatisticWindow::SettingsWindow::OnShowDeleted(wxCommandEvent& event)
@@ -854,4 +948,34 @@ void StatisticWindow::SettingsWindow::OnShowFiltered(wxCommandEvent& event)
 	parent_statwindow->pores_statistic_list->set_item_count();
 	parent_statwindow->pores_statistic_list->Refresh();
 	parent_statwindow->pores_statistic_list->Update();
+}
+
+void StatisticWindow::SettingsWindow::OnChoiceSide(wxCommandEvent& event)
+{
+	if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
+	{
+		if (uint8_t side = event.GetSelection(); side != 0)
+			metric_coef = m_spinctrl_coef->GetValue() / (side == 1 ? view.width() : view.height());
+		else
+			metric_coef = 1.0;
+		parent_statwindow->common_statistic_list->Refresh();
+		parent_statwindow->pores_statistic_list->Refresh();
+		parent_statwindow->common_statistic_list->Update();
+		parent_statwindow->pores_statistic_list->Update();
+	}
+}
+
+void StatisticWindow::SettingsWindow::OnMetricCoefChanged(wxSpinDoubleEvent& event)
+{
+	if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
+	{
+		if (uint8_t side = m_choice_side->GetSelection(); side != 0)
+			metric_coef = event.GetValue() / (side == 1 ? view.width() : view.height());
+		else
+			metric_coef = 1.0;
+		parent_statwindow->common_statistic_list->Refresh();
+		parent_statwindow->pores_statistic_list->Refresh();
+		parent_statwindow->common_statistic_list->Update();
+		parent_statwindow->pores_statistic_list->Update();
+	}
 }
