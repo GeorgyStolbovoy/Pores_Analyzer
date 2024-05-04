@@ -20,10 +20,6 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	wxMenuItem* m_menuItem1 = new wxMenuItem( m_menu1, wxID_OPEN, wxString(wxT("Загрузить изображение")));
 	m_menu1->Append( m_menuItem1 );
 
-	wxMenuItem* m_menuItem2 = new wxMenuItem( m_menu1, wxID_ANY, wxString(wxT("Сохранить изображение")));
-	m_menu1->Append( m_menuItem2 );
-	m_menuItem2->Enable( false );
-
 	m_menu1->AppendSeparator();
 
 	wxMenuItem* m_menuItem3;
@@ -36,8 +32,6 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 
 	m_toolBar = CreateToolBar( wxTB_FLAT|wxTB_HORIZONTAL|wxTB_TEXT, wxID_ANY );
 	m_toolBar->SetBackgroundColour( wxColour( 128, 128, 128 ) );
-	wxToolBarToolBase* m_tool_save = m_toolBar->AddTool( wxID_SAVE, wxT("Сохранение"), wxBitmap{filesave_xpm}, wxNullBitmap, wxITEM_NORMAL);
-
 	wxToolBarToolBase* m_tool_load = m_toolBar->AddTool( wxID_OPEN, wxT("Загрузка"), wxBitmap{fileopen_xpm}, wxNullBitmap, wxITEM_NORMAL);
 
 	m_toolBar->AddSeparator();
@@ -89,6 +83,4 @@ Frame::Frame() : wxFrame(nullptr, wxID_ANY, "Pores Analyzer")
 	Layout();
 	Centre( wxBOTH );
 	SetIcon({wxT("wxICON_AAA")});
-
-	//m_statistic->m_aui->InitPanesPositions(m_statistic->GetSize());
 }

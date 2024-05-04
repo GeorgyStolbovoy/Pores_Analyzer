@@ -184,7 +184,7 @@ void CorrectionWindow::OnPaint(wxPaintEvent& event)
     gc->SetTransform(gc->CreateMatrix(1 - 13/double(width), 0, 0, 13/double(height) - 1, 6.5, height - 6.5));
     
     // Ãטסעמדנאללא
-    if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
+    if (auto view = gil::view(Frame::frame->m_image->image_source); !view.empty())
     {
         if (!path_histogram.has_value()) [[unlikely]]
         {

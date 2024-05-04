@@ -44,10 +44,10 @@ class StatisticWindow : public wxWindow
 
 	struct PoresStatisticList : wxListCtrl
 	{
-#define PORES_PARAMS ID, SQUARE, BRIGHTNESS, PERIMETER, DIAMETER, CENTROID_X, CENTROID_Y, LENGTH, WIDTH, LENGTH_OY, WIDTH_OX, MAX_DIAMETER, MIN_DIAMETER, SHAPE, ELONGATION
+#define PORES_PARAMS ID, SQUARE, BRIGHTNESS, PERIMETER, DIAMETER, CENTROID_X, CENTROID_Y, LENGTH_OY, WIDTH_OX, SHAPE, ELONGATION
 #define STRINGSIZE_NAME(z, data, name) #name
 #define PORES_PARAMS_NAMES BOOST_PP_SEQ_TRANSFORM(STRINGSIZE_NAME, ~, BOOST_PP_VARIADIC_TO_SEQ( \
-			№, Площадь, Яркость, Периметр, Эквивалентный диаметр, Координата X, Координата Y, Длина, Ширина, Высота проекции, Ширина проекции, Наибольший диаметр, Наименьший диаметр, Фактор формы, Удлинённость))
+			№, Площадь, Яркость, Периметр, Эквивалентный диаметр, Координата X, Координата Y, Высота проекции, Ширина проекции, Фактор формы, Удлинённость))
 		static_assert(BOOST_PP_VARIADIC_SIZE(PORES_PARAMS) == BOOST_PP_SEQ_SIZE(PORES_PARAMS_NAMES));
 #define PORES_CALCULATING_PARAMS BOOST_PP_SEQ_POP_FRONT(BOOST_PP_VARIADIC_TO_SEQ(PORES_PARAMS))
 #define FILL(z, data, p) data

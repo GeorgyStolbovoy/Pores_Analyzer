@@ -22,7 +22,6 @@ public:
 
     Frame();
 	void OnLoad(wxCommandEvent& event);
-	void OnSave(wxCommandEvent& event);
 	void OnToolbarScale(wxCommandEvent& event);
 	void OnToolbarSelect(wxCommandEvent& event);
 	void OnToolbarDelete(wxCommandEvent& event);

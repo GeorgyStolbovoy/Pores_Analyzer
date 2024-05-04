@@ -32,7 +32,7 @@ struct ImageWindow : wxWindow
 		~RecoveringBackground() {delete[] background; delete[] alpha;}
 	};
 
-	Image_t image;
+	Image_t image, image_source;
 	wxImage marked_image;
 	Histogram_t histogram;
 	enum class State : uint8_t {SCALING, SELECTING, DELETING, RECOVERING} state = State::SCALING;
@@ -58,7 +58,6 @@ struct ImageWindow : wxWindow
 	void update_image(bool reset_selection);
 
 private:
-	Image_t image_source;
 	wxBitmap DCbuffer;
 
 	wxDECLARE_EVENT_TABLE();

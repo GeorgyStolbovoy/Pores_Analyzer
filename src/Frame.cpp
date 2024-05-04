@@ -5,7 +5,6 @@
 wxBEGIN_EVENT_TABLE(Frame, wxWindow)
     EVT_MENU(wxID_OPEN, Frame::OnLoad)
     EVT_MENU(wxID_EXIT, Frame::Exit<wxCommandEvent>)
-    EVT_TOOL(wxID_SAVE, Frame::OnSave)
     EVT_TOOL(wxID_OPEN, Frame::OnLoad)
     EVT_TOOL(wxID_FIND, Frame::OnToolbarScale)
     EVT_TOOL(wxID_SELECTALL, Frame::OnToolbarSelect)
@@ -29,11 +28,6 @@ void Frame::OnLoad(wxCommandEvent& event)
         Refresh();
         Update();
     }
-}
-
-void Frame::OnSave(wxCommandEvent& event)
-{
-    ;
 }
 
 #define SELECT_TOOL(tool, new_cursor) \

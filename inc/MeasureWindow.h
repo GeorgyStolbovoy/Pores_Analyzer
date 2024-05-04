@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ImageWindow.h"
-#include "MorphologyWindow.h"
 #include "StatisticWindow.h"
 #include "DoubleSlider.hpp"
 #include "Utils.h"
@@ -56,16 +55,14 @@ public:
 #define ID_SLIDER(z, data, s) dslider_##s##_id
 #define SLIDERS BOOST_PP_SEQ_TRANSFORM(NAME_SLIDER, ~, PORES_CALCULATING_PARAMS)
 #define SLIDERS_IDS BOOST_PP_SEQ_TRANSFORM(ID_SLIDER, ~, PORES_CALCULATING_PARAMS)
-	static wxWindowID collapse_morphology_id, collapse_color_id, collapse_filter_id, slider_amount_id, slider_transparency_id, slider_thres_id,
-		button_color_id, button_erosion_id, button_dilation_id, toggle_color_id, toggle_background_id, toggle_boundaries_id, BOOST_PP_SEQ_ENUM(SLIDERS_IDS);
-	MorphologyWindow *m_window_erosion, *m_window_dilation;
+	static wxWindowID collapse_segmentation_id, collapse_color_id, collapse_filter_id, slider_amount_id, slider_transparency_id, slider_thres_id,
+		button_color_id, toggle_color_id, toggle_background_id, BOOST_PP_SEQ_ENUM(SLIDERS_IDS);
 	wxSlider *m_slider_amount, *m_slider_transparency, *m_slider_thres;
 #define ADD_POINTER(z, data, s) *s
 	double_slider_t BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(ADD_POINTER, ~, SLIDERS));
 #undef ADD_POINTER
-	wxToggleButton *m_toggle_colorize, *m_toggle_boundaries;
-	wxButton *m_button_changeColor, *m_button_erosion, *m_button_dilation;
-	wxColourPickerCtrl* m_colorpicker_boundaries;
+	wxToggleButton *m_toggle_colorize;
+	wxButton *m_button_changeColor;
 
 	pores_container m_pores;
 	std::set<uint32_t> m_deleted_pores, m_filtered_pores, m_selected_pores;
@@ -81,8 +78,6 @@ public:
 	void OnChangeSeparationAmount(wxScrollEvent& event);
 	void OnChangeTransparency(wxScrollEvent& event);
 	void OnChangeColor(wxCommandEvent& event);
-	void OnErosion(wxCommandEvent& event);
-	void OnDilation(wxCommandEvent& event);
 	void OnSwitchColor(wxCommandEvent& event);
 	void OnCollapse(wxCollapsiblePaneEvent& event);
 

@@ -4,18 +4,15 @@
 
 #define DECLARE_SLIDER_ID(z, data, s) MeasureWindow::s = wxWindow::NewControlId()
 wxWindowID
-	MeasureWindow::collapse_morphology_id = wxWindow::NewControlId(3),
-	MeasureWindow::collapse_color_id = MeasureWindow::collapse_morphology_id + 1,
-	MeasureWindow::collapse_filter_id = MeasureWindow::collapse_morphology_id + 2,
+	MeasureWindow::collapse_segmentation_id = wxWindow::NewControlId(3),
+	MeasureWindow::collapse_color_id = MeasureWindow::collapse_segmentation_id + 1,
+	MeasureWindow::collapse_filter_id = MeasureWindow::collapse_segmentation_id + 2,
 	MeasureWindow::slider_amount_id = wxWindow::NewControlId(),
 	MeasureWindow::slider_transparency_id = wxWindow::NewControlId(),
 	MeasureWindow::slider_thres_id = wxWindow::NewControlId(),
 	MeasureWindow::button_color_id = wxWindow::NewControlId(),
-	MeasureWindow::button_erosion_id = wxWindow::NewControlId(),
-	MeasureWindow::button_dilation_id = wxWindow::NewControlId(),
 	MeasureWindow::toggle_color_id = wxWindow::NewControlId(),
 	MeasureWindow::toggle_background_id = wxWindow::NewControlId(),
-	MeasureWindow::toggle_boundaries_id = wxWindow::NewControlId(),
 	BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(DECLARE_SLIDER_ID, ~, SLIDERS_IDS));
 
 wxBEGIN_EVENT_TABLE(MeasureWindow, wxWindow)
@@ -23,8 +20,6 @@ wxBEGIN_EVENT_TABLE(MeasureWindow, wxWindow)
     EVT_COMMAND_SCROLL_CHANGED(MeasureWindow::slider_amount_id, MeasureWindow::OnChangeSeparationAmount)
 	EVT_COMMAND_SCROLL_CHANGED(MeasureWindow::slider_transparency_id, MeasureWindow::OnChangeTransparency)
     EVT_BUTTON(MeasureWindow::button_color_id, MeasureWindow::OnChangeColor)
-	EVT_BUTTON(MeasureWindow::button_erosion_id, MeasureWindow::OnErosion)
-	EVT_BUTTON(MeasureWindow::button_dilation_id, MeasureWindow::OnDilation)
 	EVT_TOGGLEBUTTON(MeasureWindow::toggle_color_id, MeasureWindow::OnSwitchColor)
 	EVT_COLLAPSIBLEPANE_CHANGED(wxID_ANY, MeasureWindow::OnCollapse)
 wxEND_EVENT_TABLE()
@@ -55,7 +50,7 @@ void MeasureWindow::OnCollapse(wxCollapsiblePaneEvent& event)
 			wxWindow* item = pane_sizer->GetItem(std::size_t(0))->GetWindow();
 			static_cast<wxCollapsiblePane*>(item)->Collapse();
 			pane_sizer->Detach(item);
-			collapses_sizer->Insert(item->GetId() - collapse_morphology_id, item, 1, wxEXPAND, 5);
+			collapses_sizer->Insert(item->GetId() - collapse_segmentation_id, item, 1, wxEXPAND, 5);
 		}
 		collapses_sizer->Detach(pane);
 		pane_sizer->Add(pane, 1, wxEXPAND, 5);
@@ -63,172 +58,9 @@ void MeasureWindow::OnCollapse(wxCollapsiblePaneEvent& event)
 	else
 	{
 		pane_sizer->Detach(pane);
-		collapses_sizer->Insert(pane->GetId() - collapse_morphology_id, pane, 1, wxEXPAND, 5);
+		collapses_sizer->Insert(pane->GetId() - collapse_segmentation_id, pane, 1, wxEXPAND, 5);
 	}
 	Frame::frame->Layout();
-}
-
-void MeasureWindow::OnErosion(wxCommandEvent& event)
-{
-	struct eroser
-	{
-		MeasureWindow* self;
-		pores_container erosed_pores;
-		pores_container::iterator it, end;
-		pores_container::node_type node;
-		std::unordered_set<
-			pores_container::iterator,
-			decltype([](const auto& it){return boost::hash<coord_t>{}(it->second);}),
-			decltype([](const auto& lhs, const auto& rhs){return lhs->second.first == rhs->second.first && lhs->second.second == rhs->second.second;})
-		> pixels_to_erase;
-
-		eroser(MeasureWindow* self) : self(self), it(self->m_pores.get<tag_multiset>().begin()), end(self->m_pores.get<tag_multiset>().end())
-		{
-			for (;;)
-			{
-				uint32_t pore_id = it->first;
-				if (!self->m_deleted_pores.contains(pore_id) && !self->m_filtered_pores.contains(pore_id))
-				{
-					do
-					{
-						for (auto& pair: self->m_window_erosion->structure)
-						{
-							if (std::ptrdiff_t coord_x = it->second.first + pair.first, coord_y = it->second.second + pair.second;
-								coord_x >= 0 && coord_x < self->width && coord_y >= 0 && coord_y < self->height)
-							{
-								if (auto pore_pixel_it = self->m_pores.get<tag_hashset>().find(coord_t{coord_x, coord_y});
-									pore_pixel_it == self->m_pores.get<tag_hashset>().end() || pore_pixel_it->first != pore_id)
-								{
-									pixels_to_erase.insert(it);
-									break;
-								}
-							}
-						}
-						if (++it == end) [[unlikely]]
-						{
-							separate_pores();
-							return;
-						}
-					} while (it->first == pore_id);
-				}
-				else if ((it = self->m_pores.get<MeasureWindow::tag_multiset>().lower_bound(pore_id, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
-					== self->m_pores.get<MeasureWindow::tag_multiset>().end()) [[unlikely]]
-				{
-					separate_pores();
-					return;
-				}
-			}
-		}
-		void separate_pores()
-		{
-			for (auto& it_erase: pixels_to_erase)
-				self->m_pores.get<tag_multiset>().erase(it_erase);
-			it = self->m_pores.get<tag_multiset>().begin();
-			pores_container::iterator it_erosed, end_erosed = erosed_pores.get<tag_multiset>().end();
-			uint32_t old_id = 0;
-			auto inspect_neighbour = [this, &it_erosed, &old_id](std::ptrdiff_t dx, std::ptrdiff_t dy)
-			{
-				if (auto near_it = self->m_pores.get<tag_hashset>().find(coord_t{it_erosed->second.first + dx, it_erosed->second.second + dy});
-					near_it != self->m_pores.get<tag_hashset>().end() && near_it->first == old_id)
-				{
-					node = self->m_pores.get<tag_hashset>().extract(near_it);
-					node.value().first = self->pores_count;
-					erosed_pores.get<tag_hashset>().insert(std::move(node));
-				}
-			};
-
-			self->pores_count = 0;
-			for (;;)
-			{
-				old_id = it->first;
-				if (self->m_deleted_pores.contains(old_id) || self->m_filtered_pores.contains(old_id)) [[unlikely]]
-				{
-					++self->pores_count;
-					do
-					{
-						node = self->m_pores.get<tag_multiset>().extract(it++);
-						node.value().first = self->pores_count;
-						erosed_pores.get<tag_hashset>().insert(std::move(node));
-						if (it == end) [[unlikely]]
-							return;
-					} while (it->first == old_id);
-					continue;
-				}
-				node = self->m_pores.get<tag_multiset>().extract(it);
-				node.value().first = ++self->pores_count;
-				it_erosed = erosed_pores.get<tag_multiset>().insert(std::move(node)).position;
-				do
-				{
-					inspect_neighbour(0, 1);
-					inspect_neighbour(1, 1);
-					inspect_neighbour(1, 0);
-					inspect_neighbour(1, -1);
-					inspect_neighbour(0, -1);
-					inspect_neighbour(-1, -1);
-					inspect_neighbour(-1, 0);
-					inspect_neighbour(-1, 1);
-				} while (++it_erosed != end_erosed);
-				it = self->m_pores.get<tag_multiset>().begin();
-				if (it == end) [[unlikely]]
-					return;
-			}
-		}
-		~eroser()
-		{
-			self->m_pores = std::move(erosed_pores);
-			self->after_measure();
-			Frame::frame->m_image->update_image(true);
-		}
-	} __(this);
-}
-
-void MeasureWindow::OnDilation(wxCommandEvent& event)
-{
-	std::unordered_set<
-		pore_coord_t,
-		decltype([](const auto& pore){return boost::hash<coord_t>{}(pore.second);}),
-		decltype([](const auto& lhs, const auto& rhs){return lhs.second.first == rhs.second.first && lhs.second.second == rhs.second.second;})
-	> pixels_to_insert;
-	auto finalize = [this, &pixels_to_insert]()
-	{
-		for (auto& pore: pixels_to_insert)
-		{
-			if (auto result = m_pores.get<tag_hashset>().insert(pore); !result.second && (m_deleted_pores.contains(result.first->first) || m_filtered_pores.contains(result.first->first))) [[unlikely]]
-				m_pores.get<tag_multiset>().modify_key(m_pores.project<tag_multiset>(result.first), [&pore](uint32_t& id){id = pore.first;});
-		}
-		after_measure();
-		Frame::frame->m_image->update_image(true);
-	};
-
-	for (auto it = m_pores.get<tag_multiset>().begin(), end = m_pores.get<tag_multiset>().end();;)
-	{
-		uint32_t pore_id = it->first;
-		if (!m_deleted_pores.contains(pore_id) && !m_filtered_pores.contains(pore_id))
-		{
-			do
-			{
-				for (auto& pair: m_window_dilation->structure)
-				{
-					if (std::ptrdiff_t coord_x = it->second.first + pair.first, coord_y = it->second.second + pair.second;
-						coord_x >= 0 && coord_x < width && coord_y >= 0 && coord_y < height)
-					{
-						pixels_to_insert.insert({pore_id, coord_t{coord_x, coord_y}});
-					}
-				}
-				if (++it == end) [[unlikely]]
-				{
-					finalize();
-					return;
-				}
-			} while (it->first == pore_id);
-		}
-		else if ((it = m_pores.get<tag_multiset>().lower_bound(pore_id, [](uint32_t lhs, uint32_t rhs) {return lhs <= rhs;}))
-			== m_pores.get<tag_multiset>().end()) [[unlikely]]
-		{
-			finalize();
-			return;
-		}
-	}
 }
 
 void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
@@ -389,7 +221,6 @@ void MeasureWindow::Measure()
 	// Определить слипшиеся поры
 	class Separation
 	{
-		struct Group;
 		using pores_list_t = std::forward_list<coords_t>;
 		struct Group
 		{

@@ -193,7 +193,6 @@
       <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
       <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PreprocessToFile>
     </ClCompile>
-    <ClCompile Include="src\MorphologyWindow.cpp" />
     <ClCompile Include="src\StatisticWindow.cpp">
       <UseStandardPreprocessor Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</UseStandardPreprocessor>
       <UseStandardPreprocessor Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</UseStandardPreprocessor>
@@ -211,7 +210,6 @@
     <ClInclude Include="inc\Frame.h" />
     <ClInclude Include="inc\ImageWindow.h" />
     <ClInclude Include="inc\MeasureWindow.h" />
-    <ClInclude Include="inc\MorphologyWindow.h" />
     <ClInclude Include="inc\StatisticWindow.h" />
     <ClInclude Include="inc\Utils.h" />
     <ClInclude Include="resource.h" />

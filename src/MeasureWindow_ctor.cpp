@@ -2,58 +2,27 @@
 #include "Frame.h"
 #include <wx/statbox.h>
 #include <wx/button.h>
-#include <wx/choice.h>
-#include <wx/spinctrl.h>
-#include <wx/stattext.h>
 
 MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN)
 {
-	wxBoxSizer *sizer_measure = new wxBoxSizer( wxVERTICAL ), *sizer_horizontal = new wxBoxSizer( wxHORIZONTAL ), *sizer_vertical = new wxBoxSizer( wxVERTICAL );
-
-	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Порог")), wxHORIZONTAL);
-	m_slider_thres = new wxSlider( this, slider_thres_id, threshold, 0, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_thres, 1, wxALL|wxEXPAND|wxCENTRE, 5);
-	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, wxT("Чувствительность поиска слипшихся пор")), wxHORIZONTAL);
-	m_slider_amount = new wxSlider( this, slider_amount_id, amount, 2, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
-	static_box_sizer->Add(m_slider_amount, 1, wxALL|wxEXPAND|wxCENTRE, 5);
-	sizer_vertical->Add(static_box_sizer, 1, wxEXPAND, 5 );
-
-	sizer_measure->Add( sizer_vertical, 0, wxEXPAND, 5 );
+	wxBoxSizer *sizer_measure = new wxBoxSizer( wxVERTICAL ), *sizer_horizontal = new wxBoxSizer( wxHORIZONTAL );
 
 	collapses_sizer = new wxBoxSizer( wxHORIZONTAL );
 
-	wxCollapsiblePane *collpane = new wxCollapsiblePane(this, collapse_morphology_id, "Морфология", wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE);
+	wxCollapsiblePane *collpane = new wxCollapsiblePane(this, collapse_segmentation_id, "Сегментация", wxDefaultPosition, wxDefaultSize, wxCP_NO_TLW_RESIZE);
 
 	wxWindow *win = collpane->GetPane();
-	wxSizer *paneSz = new wxBoxSizer(wxHORIZONTAL);
+	wxSizer *paneSz = new wxBoxSizer(wxVERTICAL);
 
-	paneSz->Add(0, 0, 1, wxEXPAND, 5);
+	wxStaticBoxSizer* static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win, wxID_ANY, wxT("Порог")), wxHORIZONTAL);
+	m_slider_thres = new wxSlider( win, slider_thres_id, threshold, 0, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_thres, 1, wxALL|wxEXPAND|wxCENTRE, 5);
+	paneSz->Add(static_box_sizer, 1, wxEXPAND, 5 );
 
-	wxBoxSizer* sizer_erosion = new wxBoxSizer( wxVERTICAL );
-
-	m_window_erosion = new MorphologyWindow(win);
-	sizer_erosion->Add( m_window_erosion, 1, wxALL|wxEXPAND, 5 );
-
-	m_button_erosion = new wxButton( win, button_erosion_id, wxT("Эрозия"), wxDefaultPosition, wxDefaultSize, 0 );
-	sizer_erosion->Add( m_button_erosion, 0, wxALL|wxEXPAND, 5 );
-
-	paneSz->Add( sizer_erosion, 0, wxEXPAND, 5 );
-
-	paneSz->Add(0, 0, 1, wxEXPAND, 5);
-
-	wxBoxSizer* sizer_dilation = new wxBoxSizer( wxVERTICAL );
-
-	m_window_dilation = new MorphologyWindow(win);
-	sizer_dilation->Add( m_window_dilation, 1, wxALL|wxEXPAND, 5 );
-
-	m_button_dilation = new wxButton( win, button_dilation_id, wxT("Наращивание"), wxDefaultPosition, wxDefaultSize, 0 );
-	sizer_dilation->Add( m_button_dilation, 0, wxALL|wxEXPAND, 5 );
-
-	paneSz->Add( sizer_dilation, 0, wxEXPAND, 5 );
-
-	paneSz->Add(0, 0, 1, wxEXPAND, 5);
+	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win, wxID_ANY, wxT("Чувствительность поиска слипшихся пор")), wxHORIZONTAL);
+	m_slider_amount = new wxSlider( win, slider_amount_id, amount, 2, 255, wxDefaultPosition, wxSize(500, -1), wxSL_HORIZONTAL|wxSL_LABELS );
+	static_box_sizer->Add(m_slider_amount, 1, wxALL|wxEXPAND|wxCENTRE, 5);
+	paneSz->Add(static_box_sizer, 1, wxEXPAND, 5 );
 
 	win->SetSizer(paneSz);
 	paneSz->SetSizeHints(win);
@@ -65,23 +34,6 @@ MeasureWindow::MeasureWindow() : wxWindow(Frame::frame, wxID_ANY, wxDefaultPosit
 	wxWindow *win_pane_color = collpane_color->GetPane();
 
 	paneSz = new wxBoxSizer( wxVERTICAL );
-
-	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_color, wxID_ANY, wxT("Границы пор")), wxVERTICAL);
-	m_toggle_boundaries = new wxToggleButton(win_pane_color, toggle_boundaries_id, wxT("Выделить границы пор"));
-	m_toggle_boundaries->SetValue(true);
-	static_box_sizer->Add(m_toggle_boundaries, 0, wxALL|wxEXPAND, 5);
-
-	wxSizer* sizer_horizontal_2 = new wxBoxSizer(wxHORIZONTAL);
-
-	wxStaticText* static_text = new wxStaticText(win_pane_color, wxID_ANY, wxT("Цвет: "));
-	sizer_horizontal_2->Add(static_text, 0, wxALIGN_CENTER_VERTICAL, 5);
-
-	m_colorpicker_boundaries = new wxColourPickerCtrl(win_pane_color, wxID_ANY, *wxRED, wxDefaultPosition, wxDefaultSize, wxCLRP_SHOW_LABEL);
-	sizer_horizontal_2->Add(m_colorpicker_boundaries, 1, wxEXPAND, 5);
-	
-	static_box_sizer->Add(sizer_horizontal_2, 0, wxALL|wxEXPAND, 5);
-	
-	sizer_horizontal->Add(static_box_sizer, 0, wxEXPAND, 5);
 
 	static_box_sizer = new wxStaticBoxSizer(new wxStaticBox(win_pane_color, wxID_ANY, wxT("Прозрачность")), wxVERTICAL);
 	m_slider_transparency = new wxSlider( win_pane_color, slider_transparency_id, 0, 0, 100, wxDefaultPosition, wxDefaultSize /*wxSize(500, -1)*/, wxSL_HORIZONTAL|wxSL_LABELS );
