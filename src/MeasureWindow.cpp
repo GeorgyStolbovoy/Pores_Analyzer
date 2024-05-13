@@ -72,7 +72,7 @@ void MeasureWindow::OnChangeThreshold(wxScrollEvent& event)
 			bug_workaround = false;
 		if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
 		{
-			Measure();
+			Segmentation();
 			Frame::frame->m_image->update_image(true);
 		}
 	}
@@ -89,7 +89,7 @@ void MeasureWindow::OnChangeSeparationAmount(wxScrollEvent& event)
 			bug_workaround = false;
 		if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
 		{
-			Measure();
+			Segmentation();
 			Frame::frame->m_image->update_image(true);
 		}
 	}
@@ -107,15 +107,14 @@ void MeasureWindow::NewMeasure(ImageWindow::Image_t::view_t view)
 #undef CACHED_LOC
 	height = view.height();
 	width = view.width();
-	Measure();
+	Segmentation();
 }
 
-void MeasureWindow::Measure()
+void MeasureWindow::Segmentation()
 {
 	using coords_t = std::unordered_set<coord_t, boost::hash<coord_t>>;
 
 	m_pores.clear();
-	references.clear();
 
 	auto image_view = gil::view(Frame::frame->m_image->image);
 	std::forward_list<ImageWindow::Image_t::view_t::iterator> inspecting;
@@ -525,35 +524,20 @@ void MeasureWindow::Measure()
 			do
 			{
 				++pores_count;
-				float reference = 0.0f;
 				for (auto& coord : *sep_pores_it)
-				{
-					m_pores.get<tag_multiset>().insert({pores_count, coord});
-					reference += *image_view.xy_at(coord.first, coord.second);
-				}
-				references[pores_count] = reference / sep_pores_it->size();
+					m_pores.get<tag_hashset>().insert({pores_count, coord});
 			} while (++sep_pores_it != sep_pores_end);
 		}
 		else
 		{
 			++pores_count;
-			float reference = 0.0f;
 			for (auto& coord : cds)
-			{
-				m_pores.get<tag_multiset>().insert({pores_count, coord});
-				reference += *image_view.xy_at(coord.first, coord.second);
-			}
-			references[pores_count] = reference / cds.size();
+				m_pores.get<tag_hashset>().insert({pores_count, coord});
 		}
 	}
 	++pores_count;
-	float reference = 0.0f;
 	for (auto& coord : background)
-	{
-		m_pores.get<tag_multiset>().insert({pores_count, coord});
-		reference += *image_view.xy_at(coord.first, coord.second);
-	}
-	references[pores_count] = reference / background.size();
+		m_pores.get<tag_hashset>().insert({pores_count, coord});
 
 	after_measure();
 }

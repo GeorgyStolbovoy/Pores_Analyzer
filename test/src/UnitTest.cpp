@@ -3,21 +3,13 @@
 #define BOOST_TEST_MODULE Test
 #include <boost/test/included/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
-#include <boost/hana/all.hpp>
-
-struct S
-{
-	int a;
-	boost::hana::optional<int> b;
-	int c = 0;
-};
-
-int foo(const S& s)
-{
-	return s.a + s.b.value() + s.c;
-}
+#include <boost/logic/tribool.hpp>
 
 BOOST_AUTO_TEST_CASE(algorithm_test)
 {
-	BOOST_TEST_MESSAGE(foo({.a = 1, .c = 3}));
+	constexpr auto s1 = sizeof(std::pair<bool, bool>);
+	constexpr auto s2 = sizeof(boost::tribool);
+
+	BOOST_TEST_MESSAGE(f.foo.operator()<true>());
+	BOOST_TEST_MESSAGE(f.foo.operator()<false>());
 }

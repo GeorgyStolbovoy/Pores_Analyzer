@@ -26,17 +26,19 @@ struct DoubleSlider : wxWindow
 	}
 	void set_min(float min_)
 	{
-		float value = (max - min)*min_pos + min;
+		float value = (max - min)*min_pos + min, max_value = (max - min)*max_pos + min;
 		min = min_;
 		min_pos = (value - min)/(max - min);
+		max_pos = (max_value - min)/(max - min);
 		if (min_pos < 0.0f) [[unlikely]]
 			min_pos = 0.0;
 	}
 	void set_max(float max_)
 	{
-		float value = (max - min)*max_pos + min;
+		float value = (max - min)*max_pos + min, min_value = (max - min)*min_pos + min;
 		max = max_;
 		max_pos = (value - min)/(max - min);
+		min_pos = (min_value - min)/(max - min);
 		if (max_pos > 1.0f) [[unlikely]]
 			max_pos = 1.0;
 	}

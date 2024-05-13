@@ -7,7 +7,6 @@
 #include <wx/slider.h>
 #include <wx/tglbtn.h>
 #include <wx/collpane.h>
-#include <wx/clrpicker.h>
 #include <wx/sizer.h>
 #include <set>
 #include <unordered_set>
@@ -15,7 +14,6 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index/key.hpp>
 #include <boost/multi_index/tag.hpp>
 #include <boost/container_hash/hash.hpp>
@@ -41,7 +39,7 @@ private:
 	using filter_callback_max_t = Invoker<std::max({BOOST_PP_SEQ_ENUM(BOOST_PP_SEQ_TRANSFORM(FILTER_CALLBACK_SIZE, 0, PORES_CALCULATING_PARAMS))}), void, float, float>;
 #undef FILTER_CALLBACK_SIZE
 public:
-	struct tag_multiset{}; struct tag_hashset{}; struct tag_sequenced{};
+	struct tag_multiset{}; struct tag_hashset{};
 	using pores_container = boost::multi_index_container<
 		pore_coord_t,
 		mi::indexed_by<
@@ -67,7 +65,6 @@ public:
 	pores_container m_pores;
 	std::set<uint32_t> m_deleted_pores, m_filtered_pores, m_selected_pores;
 	std::unordered_set<coord_t, boost::hash<coord_t>> m_boundary_pixels;
-	std::unordered_map<uint32_t, float> references;
 	std::vector<uint8_t> m_colors;
 	std::ptrdiff_t height = 0, width = 0;
 	uint32_t pores_count;
@@ -87,7 +84,7 @@ private:
 	locator_t::cached_location_t cl_lt, cl_t, cl_rt, cl_r, cl_rb, cl_b, cl_lb, cl_l;
 	uint8_t threshold = 100, amount = 50;
 
-	void Measure();
+	void Segmentation();
 	void after_measure();
 
 	wxSizer *collapses_sizer, *pane_sizer;

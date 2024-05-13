@@ -151,10 +151,7 @@ void CorrectionWindow::UpdateImage()
     for (uint16_t i = 0; i < 256; ++i)
     {
         if (double x = i*hist_step; x < curve_it->points.first->m_x) [[unlikely]]
-        {
             histogram[i] = 0;
-            continue;
-        }
         else [[likely]]
         {
             if (double x = i*hist_step; x <= curve_it->points.second->m_x)
@@ -407,7 +404,7 @@ void CorrectionWindow::OnMouseMove(wxMouseEvent& event)
                         return;
                 }
                 else [[likely]]
-                    obj->slope = std::log10(std::log10(mouse_y) / std::log10((obj->ctrl_point.first.m_x - obj->points.first->m_x)/(obj->points.second->m_x - obj->points.first->m_x)));;
+                    obj->slope = std::log10(std::log10(mouse_y) / std::log10((obj->ctrl_point.first.m_x - obj->points.first->m_x)/(obj->points.second->m_x - obj->points.first->m_x)));
                 obj->CalcCtrlPoint();
                 obj->path = std::nullopt;
                 Refresh();

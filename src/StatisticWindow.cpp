@@ -96,18 +96,20 @@ void StatisticWindow::collect_statistic_for_pore(uint32_t id)
 	auto it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_multiset>().find(id), end = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_multiset>().end();
 	uint32_t square = 0, brightness = 0, perimeter = 0, sum_x = 0, sum_y = 0, min_x = Frame::frame->m_measure->width - 1, max_x = 0, min_y = Frame::frame->m_measure->height - 1, max_y = 0;
 	MeasureWindow::pores_container::index<MeasureWindow::tag_hashset>::type::iterator tmp_it, end_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().end();
+	auto image_view = gil::view(Frame::frame->m_image->image);
 	do
 	{
 		++square;
 		sum_x += it->second.first;
 		sum_y += it->second.second;
+		brightness += *image_view.xy_at(it->second.first, it->second.second);
 		if (min_x > uint32_t(it->second.first)) [[unlikely]] min_x = it->second.first;
 		if (max_x < uint32_t(it->second.first)) [[unlikely]] max_x = it->second.first;
 		if (min_y > uint32_t(it->second.second)) [[unlikely]] min_y = it->second.second;
 		if (max_y < uint32_t(it->second.second)) [[unlikely]] max_y = it->second.second;
 		if (Frame::frame->m_measure->m_boundary_pixels.contains(it->second)) [[unlikely]]
 		{
-#define INC_IF_BOUNDARY(dx, dy) if (auto tmp_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{it->second.first dx, it->second.second dy}); tmp_it == end_it || tmp_it->first != id) ++perimeter
+#define INC_IF_BOUNDARY(dx, dy) if (tmp_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().find(MeasureWindow::coord_t{it->second.first dx, it->second.second dy}); tmp_it == end_it || tmp_it->first != id) ++perimeter
 			INC_IF_BOUNDARY(-1,);
 			INC_IF_BOUNDARY(,+1);
 			INC_IF_BOUNDARY(+1,);
@@ -121,7 +123,7 @@ void StatisticWindow::collect_statistic_for_pore(uint32_t id)
 	float elongation = 1/shape;
 	float centroid_x = sum_x/float(square);
 	float centroid_y = sum_y/float(square);
-	Frame::frame->m_statistic->pores_statistic_list->container.emplace_back(id, square, Frame::frame->m_measure->references[id], perimeter, diameter, centroid_x, centroid_y, lenght_oy, width_ox, shape, elongation);
+	Frame::frame->m_statistic->pores_statistic_list->container.emplace_back(id, square, brightness /= square, perimeter, diameter, centroid_x, centroid_y, lenght_oy, width_ox, shape, elongation);
 }
 
 void StatisticWindow::CollectStatistic()
@@ -144,15 +146,18 @@ void StatisticWindow::CollectStatistic()
 	{
 		auto it = measure->m_pores.get<MeasureWindow::tag_multiset>().begin(), end = measure->m_pores.get<MeasureWindow::tag_multiset>().end();
 		auto end_it = Frame::frame->m_measure->m_pores.get<MeasureWindow::tag_hashset>().end(), tmp_it = end_it;
+		auto image_view = gil::view(Frame::frame->m_image->image);
 		do
 		{
 			uint32_t id = it->first;
 			uint32_t square = 0, perimeter = 0, sum_x = 0, sum_y = 0, min_x = Frame::frame->m_measure->width - 1, max_x = 0, min_y = Frame::frame->m_measure->height - 1, max_y = 0;
+			float brightness = 0.0f;
 			do
 			{
 				++square;
 				sum_x += it->second.first;
 				sum_y += it->second.second;
+				brightness += *image_view.xy_at(it->second.first, it->second.second);
 				if (min_x > uint32_t(it->second.first)) [[unlikely]] min_x = it->second.first;
 				if (max_x < uint32_t(it->second.first)) [[unlikely]] max_x = it->second.first;
 				if (min_y > uint32_t(it->second.second)) [[unlikely]] min_y = it->second.second;
@@ -172,8 +177,7 @@ void StatisticWindow::CollectStatistic()
 			float elongation = 1/shape;
 			float centroid_x = sum_x/float(square);
 			float centroid_y = sum_y/float(square);
-			float brightness = Frame::frame->m_measure->references[id];
-			pores_statistic_list->container.emplace_back(id, square, brightness, perimeter, diameter, centroid_x, centroid_y, lenght_oy, width_ox, shape, elongation);
+			pores_statistic_list->container.emplace_back(id, square, brightness /= square, perimeter, diameter, centroid_x, centroid_y, lenght_oy, width_ox, shape, elongation);
 			if (bool not_deleted = !measure->m_deleted_pores.contains(id), not_filtered = !measure->m_filtered_pores.contains(id); not_deleted && not_filtered)
 			{
 				pores_square += square;
