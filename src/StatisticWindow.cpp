@@ -38,7 +38,7 @@ static_assert(BOOST_PP_VARIADIC_SIZE(PARAMS_VARIABLES) == BOOST_PP_SEQ_SIZE(PORE
 			container[3] = container[0]; \
 		} \
 	}
-#define SLIDERS_ACTUAL BOOST_PP_SEQ_TRANSFORM(NAME_SLIDER, ~, PORES_CALCULATING_PARAMS)
+#define ENUMER(z, i, tuple) BOOST_PP_TUPLE_ELEM(0, tuple) BOOST_PP_TUPLE_ELEM(1, tuple)
 
 // StatisticWindow
 
@@ -246,8 +246,8 @@ void StatisticWindow::CollectStatistic()
 	}
 
 #define SET_SLIDERS_VALUES(z, data, i, s) measure->s->set_values( \
-	std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(pores_statistic_list->container[2]), \
-	std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(pores_statistic_list->container[3]));
+	BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (settings_window->metric_coef, *)) std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(pores_statistic_list->container[2]), \
+	BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (settings_window->metric_coef, *)) std::get<PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(pores_statistic_list->container[3]));
 
 	BOOST_PP_SEQ_FOR_EACH_I(SET_SLIDERS_VALUES, ~, SLIDERS)
 
@@ -428,9 +428,8 @@ wxString StatisticWindow::PoresStatisticList::OnGetItemText(long item, long colu
 			[[likely]] default:  *std::to_chars(buf, buf + 16, std::get<ID>(container[item_to_index(item)])).ptr = '\0'; return {buf};
 			}
 		}
-#define COEFFICIENTS (2)(0)(1)(1)(1)(1)(1)(1)(0)(0)
 #define CASE_NUMBER(r, x, i, value) case value: if (parent_statwindow->num_considered > 0 || item > 3) {*std::to_chars(buf, buf + 16, float( \
-			BOOST_PP_IF(BOOST_PP_EQUAL(BOOST_PP_SEQ_ELEM(i, COEFFICIENTS), 2), x*x *, BOOST_PP_EXPR_IF(BOOST_PP_EQUAL(BOOST_PP_SEQ_ELEM(i, COEFFICIENTS), 1), x *)) \
+			BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (x, *)) \
 			std::get<value>(container[item_to_index(item)]))).ptr = '\0'; return {buf};} else return {'-'};
 		BOOST_PP_SEQ_FOR_EACH_I(CASE_NUMBER, parent_statwindow->settings_window->metric_coef, PORES_CALCULATING_PARAMS)
 	}
@@ -550,7 +549,7 @@ void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 		{ \
 			if (float& extreme_value = std::get<BOOST_PP_SEQ_ELEM(n, PORES_CALCULATING_PARAMS)>(container[BOOST_PP_IF(is_min, 2, 3)]); std::get<BOOST_PP_SEQ_ELEM(n, PORES_CALCULATING_PARAMS)>(item_row) BOOST_PP_IF(is_min, <=, >=) extreme_value) [[unlikely]] \
 			{ \
-				MeasureWindow::double_slider_t* slider = Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL); \
+				MeasureWindow::double_slider_t* slider = Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS); \
 				float slider_new_extreme = std::numeric_limits<float>::BOOST_PP_IF(is_min, max, min)(); \
 				extreme_value = std::numeric_limits<float>::BOOST_PP_IF(is_min, max, min)(); \
 				for (auto it = container.begin() + 4, end = container.end(); it != end; ++it) \
@@ -563,9 +562,9 @@ void StatisticWindow::PoresStatisticList::on_pore_deleted(uint32_t pore_id)
 							slider_new_extreme = pore_value; \
 					} \
 				} \
-				if (slider->BOOST_PP_IF(is_min, min, max) BOOST_PP_IF(is_min, <, >) slider_new_extreme) \
+				if (slider->BOOST_PP_IF(is_min, min, max) BOOST_PP_IF(is_min, <, >) BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(n, METRIC_COEFFICIENTS), ENUMER, (parent_statwindow->settings_window->metric_coef, *)) slider_new_extreme) \
 				{ \
-					slider->BOOST_PP_CAT(set_, BOOST_PP_IF(is_min, min, max))(slider_new_extreme); \
+					slider->BOOST_PP_CAT(set_, BOOST_PP_IF(is_min, min, max))(BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(n, METRIC_COEFFICIENTS), ENUMER, (parent_statwindow->settings_window->metric_coef, *)) slider_new_extreme); \
 					slider->Refresh(); \
 					slider->Update(); \
 				} \
@@ -584,7 +583,7 @@ void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
 	bool filtered = false;
 #define CHECK_FILTERS(z, _, i, s) \
 		{ \
-			float value = std::get<BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(item_row); \
+			float value = BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (parent_statwindow->settings_window->metric_coef, *)) std::get<BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(item_row); \
 			bool refresh_max = Frame::frame->m_measure->s->max < value; \
 			bool refresh_min = Frame::frame->m_measure->s->min > value; \
 			if (refresh_max) [[unlikely]] \
@@ -618,11 +617,11 @@ void StatisticWindow::PoresStatisticList::on_pore_recovered(uint32_t pore_id)
 			if (float item_value = std::get<BOOST_PP_SEQ_ELEM(n, PORES_CALCULATING_PARAMS)>(item_row); item_value BOOST_PP_IF(is_min, <, >) extreme_value) [[unlikely]] \
 			{ \
 				extreme_value = item_value; \
-				if (item_value BOOST_PP_IF(is_min, <, >) Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->BOOST_PP_IF(is_min, min, max)) [[unlikely]] \
+				if (BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(n, METRIC_COEFFICIENTS), ENUMER, (parent_statwindow->settings_window->metric_coef, *)) item_value BOOST_PP_IF(is_min, <, >) Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS)->BOOST_PP_IF(is_min, min, max)) [[unlikely]] \
 				{ \
-					Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->BOOST_PP_CAT(set_, BOOST_PP_IF(is_min, min, max))(item_value); \
-					Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->Refresh(); \
-					Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS_ACTUAL)->Update(); \
+					Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS)->BOOST_PP_CAT(set_, BOOST_PP_IF(is_min, min, max))(BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(n, METRIC_COEFFICIENTS), ENUMER, (parent_statwindow->settings_window->metric_coef, *)) item_value); \
+					Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS)->Refresh(); \
+					Frame::frame->m_measure->BOOST_PP_SEQ_ELEM(n, SLIDERS)->Update(); \
 				} \
 			} \
 		}
@@ -734,12 +733,12 @@ void StatisticWindow::DistributionWindow::OnPaint(wxPaintEvent& event)
 			gc->GetTextExtent(count_str, &text_width_tmp, &text_height_tmp);
 			gc->SetTransform(default_matrix);
 			gc->DrawText(count_str, width/16.0 + scale*(draw_interval*(i + 0.5)) - text_width_tmp/2, height*(1 - 1/16.0) - scale*h - text_height_tmp);
-			*std::to_chars(buf, buf + 16, std::roundf(100*(values_interval*i + min_value))/100).ptr = '\0';
+			*std::to_chars(buf, buf + 16, std::roundf(100*parent_statwindow->settings_window->metric_coef*(values_interval*i + min_value))/100).ptr = '\0';
 			if (uint8_t len = std::strlen(buf); len > max_lenght)
 				index_for_set_font = i;
 			strings.emplace_back(buf);
 		}
-		*std::to_chars(buf, buf + 16, std::roundf(100*(max_value))/100).ptr = '\0';
+		*std::to_chars(buf, buf + 16, std::roundf(100*parent_statwindow->settings_window->metric_coef*(max_value))/100).ptr = '\0';
 		strings.emplace_back(buf);
 		label_max_width *= 0.9f;
 		set_correct_font_size(gc.get(), strings[index_for_set_font], 10, label_max_width, label_max_height);
@@ -893,7 +892,7 @@ void StatisticWindow::SettingsWindow::OnDeleteBackground(wxCommandEvent& event)
 
 				{
 #define EXTREMES(z, i, _) float slider_extreme_min_##i = std::numeric_limits<float>::max(); float slider_extreme_max_##i = std::numeric_limits<float>::min();
-					BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(SLIDERS_ACTUAL), EXTREMES, ~)
+					BOOST_PP_REPEAT(BOOST_PP_SEQ_SIZE(SLIDERS), EXTREMES, ~)
 					for (auto it = parent_statwindow->pores_statistic_list->container.begin() + 4, end = parent_statwindow->pores_statistic_list->container.end(); it != end; ++it)
 					{
 						if (!Frame::frame->m_measure->m_deleted_pores.contains(std::get<StatisticWindow::PoresStatisticList::ID>(*it)))
@@ -909,17 +908,18 @@ void StatisticWindow::SettingsWindow::OnDeleteBackground(wxCommandEvent& event)
 					bool need_refresh_min, need_refresh_max;
 
 #define REFRESH_EXTREMES(z, d, i, e) \
-					need_refresh_min = Frame::frame->m_measure->e->min != slider_extreme_min_##i, need_refresh_max = Frame::frame->m_measure->e->max != slider_extreme_max_##i; \
+					need_refresh_min = Frame::frame->m_measure->e->min != BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (metric_coef, *)) slider_extreme_min_##i; \
+					need_refresh_max = Frame::frame->m_measure->e->max != BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (metric_coef, *)) slider_extreme_max_##i; \
 					if (need_refresh_min) \
-						Frame::frame->m_measure->e->set_min(slider_extreme_min_##i); \
+						Frame::frame->m_measure->e->set_min(BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (metric_coef, *)) slider_extreme_min_##i); \
 					if (need_refresh_max) \
-						Frame::frame->m_measure->e->set_max(slider_extreme_max_##i); \
+						Frame::frame->m_measure->e->set_max(BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (metric_coef, *)) slider_extreme_max_##i); \
 					if (need_refresh_min || need_refresh_max) \
 					{ \
 						Frame::frame->m_measure->e->Refresh(); \
 						Frame::frame->m_measure->e->Update(); \
 					}
-					BOOST_PP_SEQ_FOR_EACH_I(REFRESH_EXTREMES, ~, SLIDERS_ACTUAL)
+					BOOST_PP_SEQ_FOR_EACH_I(REFRESH_EXTREMES, ~, SLIDERS)
 				}
 
 				parent_statwindow->pores_statistic_list->Refresh();
@@ -964,8 +964,35 @@ void StatisticWindow::SettingsWindow::OnChoiceSide(wxCommandEvent& event)
 			metric_coef = 1.0;
 		parent_statwindow->common_statistic_list->Refresh();
 		parent_statwindow->pores_statistic_list->Refresh();
+		parent_statwindow->distribution_window->Refresh();
 		parent_statwindow->common_statistic_list->Update();
 		parent_statwindow->pores_statistic_list->Update();
+		parent_statwindow->distribution_window->Update();
+
+#define NEEDED_EXTREMES(z, _, i, e) BOOST_PP_EXPR_IF(e, float slider_extreme_min_##i = std::numeric_limits<float>::max(); float slider_extreme_max_##i = std::numeric_limits<float>::min();)
+		BOOST_PP_SEQ_FOR_EACH_I(NEEDED_EXTREMES, ~ , METRIC_COEFFICIENTS)
+		for (auto it = parent_statwindow->pores_statistic_list->container.begin() + 4, end = parent_statwindow->pores_statistic_list->container.end(); it != end; ++it)
+		{
+			if (!Frame::frame->m_measure->m_deleted_pores.contains(std::get<StatisticWindow::PoresStatisticList::ID>(*it)))
+			{
+#define CHECK_NEEDED_EXTREMES(z, d, i, e) \
+					BOOST_PP_EXPR_IF(e, \
+						if (float pore_value = std::get<StatisticWindow::PoresStatisticList::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(*it); pore_value < slider_extreme_min_##i) [[unlikely]] \
+							slider_extreme_min_##i = pore_value; \
+						else [[likely]] if (pore_value > slider_extreme_max_##i) [[unlikely]] \
+							slider_extreme_max_##i = pore_value; \
+					)
+				BOOST_PP_SEQ_FOR_EACH_I(CHECK_NEEDED_EXTREMES, ~, METRIC_COEFFICIENTS)
+			}
+		}
+#define REFRESH_SLIDERS(z, d, i, e) \
+			BOOST_PP_EXPR_IF(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), \
+				Frame::frame->m_measure->e->min = BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (metric_coef, *)) slider_extreme_min_##i; \
+				Frame::frame->m_measure->e->max = BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (metric_coef, *)) slider_extreme_max_##i; \
+				Frame::frame->m_measure->e->Refresh(); \
+				Frame::frame->m_measure->e->Update(); \
+			)
+		BOOST_PP_SEQ_FOR_EACH_I(REFRESH_SLIDERS, ~, SLIDERS)
 	}
 }
 
@@ -974,12 +1001,24 @@ void StatisticWindow::SettingsWindow::OnMetricCoefChanged(wxSpinDoubleEvent& eve
 	if (auto view = gil::view(Frame::frame->m_image->image); !view.empty())
 	{
 		if (uint8_t side = m_choice_side->GetSelection(); side != 0)
+		{
 			metric_coef = event.GetValue() / (side == 1 ? view.width() : view.height());
-		else
-			metric_coef = 1.0;
-		parent_statwindow->common_statistic_list->Refresh();
-		parent_statwindow->pores_statistic_list->Refresh();
-		parent_statwindow->common_statistic_list->Update();
-		parent_statwindow->pores_statistic_list->Update();
+			parent_statwindow->common_statistic_list->Refresh();
+			parent_statwindow->pores_statistic_list->Refresh();
+			parent_statwindow->distribution_window->Refresh();
+			parent_statwindow->common_statistic_list->Update();
+			parent_statwindow->pores_statistic_list->Update();
+			parent_statwindow->distribution_window->Update();
+
+			BOOST_PP_SEQ_FOR_EACH_I(NEEDED_EXTREMES, ~ , METRIC_COEFFICIENTS)
+			for (auto it = parent_statwindow->pores_statistic_list->container.begin() + 4, end = parent_statwindow->pores_statistic_list->container.end(); it != end; ++it)
+			{
+				if (!Frame::frame->m_measure->m_deleted_pores.contains(std::get<StatisticWindow::PoresStatisticList::ID>(*it)))
+				{
+					BOOST_PP_SEQ_FOR_EACH_I(CHECK_NEEDED_EXTREMES, ~, METRIC_COEFFICIENTS)
+				}
+			}
+			BOOST_PP_SEQ_FOR_EACH_I(REFRESH_SLIDERS, ~, SLIDERS)
+		}
 	}
 }

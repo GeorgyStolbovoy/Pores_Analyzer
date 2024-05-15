@@ -138,6 +138,7 @@ class StatisticWindow : public wxWindow
 		wxSpinCtrlDouble* m_spinctrl_coef;
 		static wxWindowID checkBox_color_id, checkBox_deleted_id, checkBox_filtered_id, toggle_background_id, choice_side_id, choice_metric_id, spinctrl_coef_id;
 
+#define METRIC_COEFFICIENTS (2)(0)(1)(1)(1)(1)(1)(1)(0)(0)
 		double metric_coef = 1.0;
 
 		SettingsWindow(wxWindow* parent);

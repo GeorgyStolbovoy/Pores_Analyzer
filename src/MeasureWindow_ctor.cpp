@@ -103,6 +103,16 @@ void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float
 	if (gil::view(Frame::frame->m_image->image).empty()) [[unlikely]]
 		return;
 
+#define ENUMER(z, i, tuple) BOOST_PP_EXPR_IF(i, BOOST_PP_TUPLE_ELEM(1, tuple)) BOOST_PP_TUPLE_ELEM(0, tuple)
+#define REMOVE_METRIC(r, _, i, value) \
+			BOOST_PP_EXPR_IF(value, \
+				if constexpr (ParamNumber == StatisticWindow::pores_statistic_list_t::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)) \
+				{ \
+					min_value /= BOOST_PP_REPEAT(value, ENUMER, (Frame::frame->m_statistic->settings_window->metric_coef, *)); \
+					max_value /= BOOST_PP_REPEAT(value, ENUMER, (Frame::frame->m_statistic->settings_window->metric_coef, *)); \
+				})
+	BOOST_PP_SEQ_FOR_EACH_I(REMOVE_METRIC, ~, METRIC_COEFFICIENTS)
+
 #define RESET_MIN_MAX(z, _, p) std::get<StatisticWindow::pores_statistic_list_t::p>(Frame::frame->m_statistic->pores_statistic_list->container[(CONDITIONAL(is_min_or_max, 2, 3))]) \
 			= CONDITIONAL(is_min_or_max, std::numeric_limits<float>::max(), std::numeric_limits<float>::min());
 #define REFRESH_MIN_MAX_MEAN(z, tuple_is_add_refresh_mean, p) \
@@ -127,7 +137,12 @@ void MeasureWindow::FilterCallback<ParamNumber, is_min_or_max>::operator()(float
 		if constexpr (ParamNumber != StatisticWindow::pores_statistic_list_t::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)) \
 		{ \
 			float value = std::get<StatisticWindow::pores_statistic_list_t::BOOST_PP_SEQ_ELEM(i, PORES_CALCULATING_PARAMS)>(*iter_to_row); \
-			if (auto [min_value, max_value] = Frame::frame->m_measure->s->get_values(); min_value > value || max_value < value) [[unlikely]] \
+			auto [min_value, max_value] = Frame::frame->m_measure->s->get_values(); \
+			BOOST_PP_EXPR_IF(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), \
+					min_value /= BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (Frame::frame->m_statistic->settings_window->metric_coef, *)); \
+					max_value /= BOOST_PP_REPEAT(BOOST_PP_SEQ_ELEM(i, METRIC_COEFFICIENTS), ENUMER, (Frame::frame->m_statistic->settings_window->metric_coef, *)); \
+				) \
+			if (min_value > value || max_value < value) [[unlikely]] \
 				return false; \
 		}
 
